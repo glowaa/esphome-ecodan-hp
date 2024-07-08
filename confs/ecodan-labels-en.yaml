@@ -10,7 +10,7 @@ substitutions:
   dhw_flow_temp_target: DHW Setpoint Value
   status_dhw: DHW
   esp_ip: ESP IP
-  internal_esp_temperature: ESP Internal Temperature
+  #internal_esp_temperature: ESP Internal Temperature
   esp_sidd: ESP SSID
   uptime: ESP Uptime
   esp_version: ESP Version
