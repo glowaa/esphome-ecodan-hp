@@ -36,4 +36,5 @@ uart:
 sensor:
   - platform: internal_temperature
     name: ${internal_esp_temperature}
+    unit_of_measurement: F
     entity_category: diagnostic
