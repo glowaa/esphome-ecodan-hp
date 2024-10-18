@@ -33,6 +33,7 @@ substitutions:
   status_prohibit_cool_z1: Zone 1 Clim Interdite
   status_prohibit_heating_z1: Zone 1 Chauffage Interdit
   heatpump_climate_z1: Thermostat Zone 1
+  heatpump_climate_room_z1: Température Zone 1
   z1_room_temp_target: Z1 Temp cible pièce
   z1_room_temp: Z1 Temp pièce
   heatpump_number_z2_set_flow_temperature: Temp cible Zone 2 C/F
@@ -41,13 +42,17 @@ substitutions:
   status_prohibit_heating_z2: Zone 2 Chauffage Interdit
   heatpump_number_z2_set_room_temperature: Z2 Temp cible pièce
   heatpump_climate_z2: Thermostat Zone 2
+  heatpump_climate_room_z2: Température Zone 2
   z2_room_temp_target: Z2 Temp cible pièce
   z2_room_temp: Z2 Temp pièce
+  mixing_tank_temp: Température Mixing Tank
   boiler_flow_temp: Temp départ ballon
   boiler_return_temp: Temp retour ballon
   status_booster: Statut réchauffeur élec
   compressor_frequency: Freq Compresseur
   controller_version_text: Version Controleur
+  controller_firmware_text: Firmware Controleur
+  controller_datetime_text: Date du Controleur
   cool_consumed: Conso Clim
   cool_cop: COP Clim
   cool_delivered: Energ Délivrée Clim
@@ -95,3 +100,5 @@ substitutions:
   z2_return_temp: Temp retour
   status_water_pump: Statut pompe à eau
   status_water_pump_2: Statut pompe à eau no2
+  fault_code_text: Code d'erreur
+  refrigerant_error_code_text: Réfrigérant code d'erreur

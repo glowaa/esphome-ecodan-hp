@@ -264,6 +264,13 @@ CONFIG_SCHEMA = cv.Schema(
             device_class=DEVICE_CLASS_TEMPERATURE,
             state_class=STATE_CLASS_MEASUREMENT,
         ),
+        cv.Optional("mixing_tank_temp"): sensor.sensor_schema(
+            unit_of_measurement=UNIT_CELSIUS,
+            icon="mdi:home-thermometer",
+            accuracy_decimals=1,
+            device_class=DEVICE_CLASS_TEMPERATURE,
+            state_class=STATE_CLASS_MEASUREMENT,
+        ),     
         cv.Optional("runtime"): sensor.sensor_schema(
             unit_of_measurement=UNIT_HOUR,
             icon="mdi:clock",
@@ -275,10 +282,17 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional("heat_source"): sensor.sensor_schema(
             entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
         ),
+        cv.Optional("refrigerant_error_code"): sensor.sensor_schema(
+            entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+        ),
         cv.Optional("status_heating_cooling"): sensor.sensor_schema(
             entity_category=ENTITY_CATEGORY_NONE,
             icon="mdi:thermostat",
         ),
+        cv.Optional("status_heating_cooling_z2"): sensor.sensor_schema(
+            entity_category=ENTITY_CATEGORY_NONE,
+            icon="mdi:thermostat",
+        ),        
     }
 ).extend(cv.COMPONENT_SCHEMA)
 

@@ -1,13 +1,58 @@
 #include "ecodan.h"
+#include <string>
+#include <algorithm>
 
 namespace esphome {
 namespace ecodan 
 {
+
+    #define MAX_FIRST_LETTER_SIZE 8
+    char FaultCodeFirstChar[MAX_FIRST_LETTER_SIZE] = {
+        'A', 'b', 'E', 'F', 'J', 'L', 'P', 'U'
+    };
+
+    #define MAX_SECOND_LETTER_SIZE 21
+    char FaultCodeSecondChar[MAX_SECOND_LETTER_SIZE] = {
+        '1', '2', '3', '4', '5', '6', '7', '8', '9',
+        'A', 'B', 'C', 'D', 'E', 'F', 'O', 'H', 'J', 'L', 'P', 'U'
+    };
+
+    std::string decode_error(uint8_t first, uint8_t second, uint16_t code) {
+        std::string fault_code = std::string("No error");
+        if (code == 0x6999) {
+            fault_code = std::string("Bad communication with unit");
+        } else if (code != 0x8000) {
+            uint16_t translated_code = (code >> 8) * 100 + (code & 0xff);
+            char result[256];
+            snprintf(result, 256, "%c%c %u", 
+                    FaultCodeFirstChar[std::max<u_int8_t>(0, first & (MAX_FIRST_LETTER_SIZE-1))], 
+                    FaultCodeSecondChar[std::max<u_int8_t>(0, second - 1) & (MAX_SECOND_LETTER_SIZE-1)], 
+                    translated_code);
+            fault_code = std::string(result);
+        }
+
+        return fault_code;
+    }
+
     void EcodanHeatpump::handle_get_response(Message& res)
     {
         {
             switch (res.payload_type<GetType>())
             {
+             case GetType::DATETIME_FIRMWARE:
+                {
+                    status.ControllerDateTime.tm_year = 100 + res[1];
+                    status.ControllerDateTime.tm_mon = res[2] - 1;
+                    status.ControllerDateTime.tm_mday = res[3];
+                    status.ControllerDateTime.tm_hour = res[4];
+                    status.ControllerDateTime.tm_min = res[5];
+                    status.ControllerDateTime.tm_sec = res[6];                    
+
+                    char firmware[6];
+                    snprintf(firmware, 6, "%02X.%02X", res[7], res[8]);
+                    publish_state("controller_firmware_text", std::string(firmware));                
+                }
+                break;               
             case GetType::DEFROST_STATE:
                 status.DefrostActive = res[3] != 0;
                 publish_state("status_defrost", status.DefrostActive);
@@ -16,6 +61,12 @@ namespace ecodan
                 // 1 = refrigerant error code
                 // 2+3 = fault code, [2]*100+[3]
                 // 4+5 = fault code: letter 2, 0x00 0x03 = A3
+                status.RefrigerantErrorCode = res[1];
+                status.FaultCodeNumeric = res.get_u16(2);
+                status.FaultCodeLetters = res.get_u16(4);
+
+                publish_state("refrigerant_error_code", static_cast<float>(status.RefrigerantErrorCode));
+                publish_state("fault_code_text", decode_error(res[4], res[5], status.FaultCodeNumeric));
                 break;
             case GetType::COMPRESSOR_FREQUENCY:
                 status.CompressorFrequency = res[1];
@@ -43,8 +94,8 @@ namespace ecodan
                 status.Zone2FlowTemperatureSetPoint = res.get_float16(7);
                 status.LegionellaPreventionSetPoint = res.get_float16(9);
                 status.DhwTemperatureDrop = res.get_float8_v2(11);
-                status.MaximumFlowTemperature = res.get_float8_v3(12);
-                status.MinimumFlowTemperature = res.get_float8_v3(13);
+                status.MaximumFlowTemperature = res.get_float8_v2(12);
+                status.MinimumFlowTemperature = res.get_float8_v2(13);
 
                 publish_state("z1_room_temp_target", status.Zone1SetTemperature);
                 publish_state("z2_room_temp_target", status.Zone2SetTemperature);
@@ -58,11 +109,9 @@ namespace ecodan
 
                 break;
             case GetType::SH_TEMPERATURE_STATE:
-                status.Zone1RoomTemperature = res.get_float16(1);
-                if (res.get_u16(3) != 0xF0C4) // 0xF0C4 seems to be a sentinel value for "not reported in the current system"
-                    status.Zone2RoomTemperature = res.get_float16(3);
-                else
-                    status.Zone2RoomTemperature = 0.0f;
+                // 0xF0 seems to be a sentinel value for "not reported in the current system"
+                status.Zone1RoomTemperature = res[1] != 0xF0 ? res.get_float16(1) : 0.0f;
+                status.Zone2RoomTemperature = res[3] != 0xF0 ? res.get_float16(3) : 0.0f;
                 status.OutsideTemperature = res.get_float8(11);
                 status.HpRefrigerantLiquidTemperature = res.get_float16_signed(8);
                 status.HpRefrigerantCondensingTemperature = res.get_float8(10);
@@ -101,9 +150,12 @@ namespace ecodan
                 status.BoilerFlowTemperature = res.get_float16(1);
                 status.BoilerReturnTemperature = res.get_float16(4);
                 publish_state("boiler_flow_temp", status.BoilerFlowTemperature);
-                publish_state("boiler_return_temp", status.BoilerReturnTemperature);
-                                
-                break;                
+                publish_state("boiler_return_temp", status.BoilerReturnTemperature);   
+                break;
+            case GetType::TEMPERATURE_STATE_D:
+                status.MixingTankTemperature = res.get_float16(1);
+                publish_state("mixing_tank_temp", status.MixingTankTemperature);     
+                break;  
             case GetType::EXTERNAL_STATE:
                 // 1 = IN1 Thermostat heat/cool request
                 // 2 = IN6 Thermostat 2
@@ -150,7 +202,8 @@ namespace ecodan
                 status.set_power_mode(res[3]);
                 status.set_operation_mode(res[4]);
                 status.set_dhw_mode(res[5]);
-                status.set_heating_cooling_mode(res[6]);
+                status.HeatingCoolingMode = static_cast<Status::HpMode>(res[6]);
+                status.HeatingCoolingModeZone2 = static_cast<Status::HpMode>(res[7]);
                 status.DhwFlowTemperatureSetPoint = res.get_float16(8);
                 //status.RadiatorFlowTemperatureSetPoint = res.get_float16(12);
 
@@ -158,6 +211,7 @@ namespace ecodan
                 publish_state("status_dhw_eco", status.HotWaterMode == Status::DhwMode::ECO);
                 publish_state("status_operation", static_cast<float>(status.Operation));
                 publish_state("status_heating_cooling", static_cast<float>(status.HeatingCoolingMode));
+                publish_state("status_heating_cooling_z2", static_cast<float>(status.HeatingCoolingModeZone2));
 
                 publish_state("dhw_flow_temp_target", status.DhwFlowTemperatureSetPoint);
                 //publish_state("sh_flow_temp_target", status.RadiatorFlowTemperatureSetPoint);
@@ -221,39 +275,30 @@ namespace ecodan
         connected = true;
     }
 
-    void EcodanHeatpump::handle_response() {
-        if (!serial_rx(uart_, res_buffer_))
-            return;
-        
-        //ESP_LOGW(TAG, res.debug_dump_packet().c_str());
-
-        switch (res_buffer_.type())
+    void EcodanHeatpump::handle_response(Message& res) {
+        switch (res.type())
         {
         case MsgType::SET_RES:
-            handle_set_response(res_buffer_);
+            handle_set_response(res);
             break;
         case MsgType::GET_RES:
         case MsgType::CONFIGURATION_RES:
-            handle_get_response(res_buffer_);
+            handle_get_response(res);
             break;
         case MsgType::CONNECT_RES:
-            handle_connect_response(res_buffer_);
+            handle_connect_response(res);
             break;
         default:
-            ESP_LOGI(TAG, "Unknown serial message type received: %#x", static_cast<uint8_t>(res_buffer_.type()));
+            ESP_LOGI(TAG, "Unknown serial message type received: %#x", static_cast<uint8_t>(res.type()));
             break;
         }
-
-        res_buffer_ = Message();
     }
 
     void EcodanHeatpump::handle_set_response(Message& res)
     {
-        {
-            //ESP_LOGW(TAG, res.debug_dump_packet().c_str());
-            if (!cmdQueue.empty())
-                cmdQueue.pop();
-        }
+        //ESP_LOGW(TAG, res.debug_dump_packet().c_str());
+        if (!cmdQueue.empty())
+            cmdQueue.pop();
 
         if (res.type() != MsgType::SET_RES)
         {
