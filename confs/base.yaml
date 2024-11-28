@@ -168,7 +168,21 @@ text_sensor:
     controller_firmware_text:
       id: controller_firmware_text
       name: ${controller_firmware_text}
-      entity_category: diagnostic          
+      entity_category: diagnostic
+
+  - platform: template
+    id: status_multi_zone
+    name: ${status_multi_zone}
+    lambda: |-
+      auto value = id(ecodan_instance).get_status().MultiZoneStatus;
+      switch (value)
+      {
+          case 0: return std::string("${status_multi_zone_idle}");
+          case 1: return std::string("${status_multi_zone_both}");
+          case 2: return std::string("${status_multi_zone_zone1}");
+          case 3: return std::string("${status_multi_zone_zone2}");
+          default: return std::string("Unknown");
+      }
 
 sensor:
   - platform: ecodan
@@ -253,7 +267,7 @@ sensor:
 
     refrigerant_error_code:
       internal: true
-      id: refrigerant_error_code 
+      id: refrigerant_error_code
 
   - platform: uptime
     name: ${uptime}
