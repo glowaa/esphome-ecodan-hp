@@ -11,10 +11,10 @@ namespace ecodan
         'A', 'b', 'E', 'F', 'J', 'L', 'P', 'U'
     };
 
-    #define MAX_SECOND_LETTER_SIZE 22
+    #define MAX_SECOND_LETTER_SIZE 21
     char FaultCodeSecondChar[MAX_SECOND_LETTER_SIZE] = {
-        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-        'A', 'B', 'C', 'D', 'E', 'F', '0', 'H', 'J', 'L', 'P', 'U'
+        '1', '2', '3', '4', '5', '6', '7', '8', '9',
+        'A', 'B', 'C', 'D', 'E', 'F', 'O', 'H', 'J', 'L', 'P', 'U'
     };
 
     std::string decode_error(uint8_t first, uint8_t second, uint16_t code) {
@@ -25,8 +25,8 @@ namespace ecodan
             uint16_t translated_code = (code >> 8) * 100 + (code & 0xff);
             char result[256];
             snprintf(result, 256, "%c%c %u", 
-                    FaultCodeFirstChar[std::max<u_int8_t>(0, first & (MAX_FIRST_LETTER_SIZE-1))], 
-                    FaultCodeSecondChar[std::max<u_int8_t>(0, second - 1) & (MAX_SECOND_LETTER_SIZE-1)], 
+                    FaultCodeFirstChar[std::max<u_int8_t>(0, first % MAX_FIRST_LETTER_SIZE)], 
+                    FaultCodeSecondChar[std::max<u_int8_t>(0, second - 1) % MAX_SECOND_LETTER_SIZE], 
                     translated_code);
             fault_code = std::string(result);
         }
