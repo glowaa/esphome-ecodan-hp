@@ -70,6 +70,7 @@ substitutions:
   booster_heater: Réchauffeur électrique
   immersion_and_booster_heater: Thermoplongeur et Réchauffeur électrique
   boiler: Ballon
+  energy_consumed_increasing: Énergie Totale Consommée
   heating_consumed: Conso chauffage
   heating_cop: COP Chauffage
   heating_delivered: Energ Délivrée Chauffage
@@ -111,4 +112,3 @@ substitutions:
   status_multi_zone_zone2: Z2 fonctionne
   fault_code_text: Code d'erreur
   refrigerant_error_code_text: Réfrigérant code d'erreur
-  status_mrc: MRC Statut

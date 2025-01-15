@@ -70,6 +70,7 @@ substitutions:
   booster_heater: Risc. Booster
   immersion_and_booster_heater: Risc. Immersione e Booster
   boiler: Caldaia
+  energy_consumed_increasing: Energia Totale Consumata
   heating_consumed: En. Risc. Utilizzata
   heating_cop: COP Risc.
   heating_delivered: En. Risc. Prod. Ieri
@@ -111,4 +112,3 @@ substitutions:
   status_multi_zone_zone2: Z2 funzionante
   fault_code_text: Codice di errore
   refrigerant_error_code_text: Liq. Refr. codice di errore
-  status_mrc: MRC Stato

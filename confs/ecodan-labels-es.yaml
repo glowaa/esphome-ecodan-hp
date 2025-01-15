@@ -70,6 +70,7 @@ substitutions:
   booster_heater: Calentador Auxiliar
   immersion_and_booster_heater: Calentador de Inmersión y Auxiliar
   boiler: Caldera
+  energy_consumed_increasing: Energía Total Consumida
   heating_consumed: Calefacción Consumida
   heating_cop: COP de Calefacción
   heating_delivered: Calefacción Entregada
@@ -111,4 +112,3 @@ substitutions:
   status_multi_zone_zone2: Z2 en Funcionamiento
   fault_code_text: Código de Falla
   refrigerant_error_code_text: Código de Error del Refrigerante
-  status_mrc: MRC Estado

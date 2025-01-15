@@ -269,9 +269,10 @@ Responses so far identified.
 ### 0x07 - Heater Power
 |   0   | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 |
 |-------|---|---|---|---|---|---|---|---|---|----|----|----|----|----|----|----|
-| 0x07  |   |   |   | I |   | P |   |   |   |    |    |    |    |    |    |    |  
+| 0x07  |   |   |   | I |   | P |   |   |   |    |  E |  E |    |    |    |    |  
 * I : Input Power (kW) - 0 = 0-1kW, 1 = 1-2kW, 2 = 2-3kW etc.
 * P : Heater Power (to nearest kW)
+* E : Total Input Power / 10 (kWh) 'increasing' (FTC6+)
 ### 0x09 - Zone 1 & 2 Temperatures and Setpoints, Hot Water Setpoint
 | 0    |   1  |   2  | 3    | 4    | 5    | 6    | 7    | 8    |  9  |  10 |  11 | 12 | 13 | 14 | 15 | 16 |
 |------|------|------|------|------|------|------|------|------|-----|-----|-----|----|----|----|----|----|
@@ -329,6 +330,16 @@ Responses so far identified.
 * T1 : In1 room thermostat 1 H/C request status (on/off)
 * T2 : In6 room thermostat 2 H/C request status (on/off)
 * T3 : In5 outdoor thermostat (on/off)
+### 0x11 - Dip Switches (FTC6 only?)
+|   0   |  1  |  2  |  3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 |
+|-------|-----|-----|----|---|---|---|---|---|---|----|----|----|----|----|----|----|
+| 0x10  | 1   |     | 2  |   | 3 |   | 4 |   | 5 |    |  6  |    |    |    |    |    |
+* Switch 1 (8..1, 0=off, 1=on)
+* Switch 2 (8..1, 0=off, 1=on)
+* Switch 3 (8..1, 0=off, 1=on)
+* Switch 4 (8..1, 0=off, 1=on)
+* Switch 5 (8..1, 0=off, 1=on)
+* Switch 6 (8..1, 0=off, 1=on)
 ### 0x13 - Run Hours
 |   0   | 1  | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 |
 |-------|----|---|---|---|---|---|---|---|---|----|----|----|----|----|----|----|

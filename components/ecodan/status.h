@@ -65,6 +65,14 @@ namespace ecodan
         uint16_t FaultCodeLetters;
         uint16_t FaultCodeNumeric;
 
+        // Dip switches
+        uint8_t DipSwitch1{0};
+        uint8_t DipSwitch2{0};
+        uint8_t DipSwitch3{0};
+        uint8_t DipSwitch4{0};
+        uint8_t DipSwitch5{0};
+        uint8_t DipSwitch6{0};
+
         // datime of controller
         struct tm ControllerDateTime = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 
@@ -76,6 +84,7 @@ namespace ecodan
 
         enum class OperationMode : uint8_t
         {
+            UNAVAILABLE = 255,
             OFF = 0,
             DHW_ON = 1,
             HEAT_ON = 2, // Heating
@@ -111,7 +120,7 @@ namespace ecodan
 
         // Modes
         PowerMode Power;
-        OperationMode Operation;
+        OperationMode Operation = OperationMode::UNAVAILABLE;
         bool HolidayMode;
         DhwMode HotWaterMode;
         HpMode HeatingCoolingMode = HpMode::OFF;
@@ -135,6 +144,7 @@ namespace ecodan
         float EnergyDeliveredCooling;
         float EnergyConsumedDhw;
         float EnergyDeliveredDhw;
+        float EnergyConsumedIncreasing{0};
 
 /* polynomial fit for
 Temp C	specific heat (J/Kg. K)

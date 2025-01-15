@@ -70,6 +70,7 @@ substitutions:
   booster_heater: booster heater
   immersion_and_booster_heater: immersion and booster heater
   boiler: boiler
+  energy_consumed_increasing: Totaal verbruikt
   heating_consumed: Verwarmen verbruikt
   heating_cop: Verwarmen cop
   heating_delivered: Verwarmen geleverd
@@ -111,4 +112,3 @@ substitutions:
   status_multi_zone_zone2: Z2 actief
   fault_code_text: Fout code
   refrigerant_error_code_text: Koelmiddel fout code
-  status_mrc: MRC Status
