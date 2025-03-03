@@ -381,10 +381,10 @@ namespace ecodan
         }   
 
         // Used for most single-byte floating point values
-        float get_float8(size_t index)
+        float get_float8(size_t index, float correction = 40.0f)
         {
             float value = payload()[index];
-            return (value / 2) - 40.0f;
+            return (value / 2) - correction;
         }
 
         // Used for DHW temperature dropand  min/max SH flow temperature threshold
@@ -403,6 +403,11 @@ namespace ecodan
         uint16_t get_u16(size_t index)
         {
             return uint16_t(payload()[index] << 8) | payload()[index + 1];
+        }
+
+        int16_t get_uint16_v2(size_t index)
+        {
+            return uint16_t(payload()[index+1] << 8) | payload()[index];
         }
 
         int16_t get_int16(size_t index)

@@ -126,7 +126,7 @@ namespace ecodan
             TH6_2_PHASE_PIPE_TEMP = 7,
             TH32_SUCTION_PIPE_TEMP = 8,
             TH8_HEAT_SINK_TEMP = 10,
-            //TH33_SURFACE_TEMP = 11,
+            TH33_SURFACE_TEMP = 11,
             DISCHARGE_SUPERHEAT = 12,
             SUB_COOL = 13,
             FAN_SPEED = 19,
@@ -142,6 +142,7 @@ namespace ecodan
         HpMode HeatingCoolingModeZone2 = HpMode::OFF;
 
         MRC_FLAG MRCFlag = MRC_FLAG::DISABLED;
+        bool ReportsExtendedOutdoorUnitThermistors = false;
 
         // prohibit flags
         bool ServerControl;
@@ -168,6 +169,7 @@ namespace ecodan
         float RcOuTwoPhasePipeTemp;
         float RcOuSuctionPipeTemp;
         float RcOuHeatSinkTemp;
+        float RcOuCompressorSurfaceTemp;
         float RcDischargeSuperHeatTemp;
         float RcSubCoolTemp;
         uint16_t RcFanSpeedRpm;

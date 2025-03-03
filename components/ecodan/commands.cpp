@@ -233,21 +233,22 @@ namespace ecodan
 
     struct ServiceCodeRuntime {
         Status::REQUEST_CODE Request;
+        bool IsOutdoorExtendedThermistor{false};
         uint32_t SecondsBetweenCalls{0};
         std::chrono::time_point<std::chrono::steady_clock> LastAttempt{};
     };
 
     #define MAX_SERVICE_CODE_CMD_SIZE 5
     ServiceCodeRuntime serviceCodeCmdQueue[MAX_SERVICE_CODE_CMD_SIZE] = {
-        ServiceCodeRuntime{Status::REQUEST_CODE::COMPRESSOR_STARTS, 30*60, std::chrono::steady_clock::now() - std::chrono::seconds(60*60)},
-        ServiceCodeRuntime{Status::REQUEST_CODE::TH4_DISCHARGE_TEMP, 0, std::chrono::steady_clock::time_point{}},
-        ServiceCodeRuntime{Status::REQUEST_CODE::TH3_LIQUID_PIPE1_TEMP, 0, std::chrono::steady_clock::time_point{}},
-        ServiceCodeRuntime{Status::REQUEST_CODE::TH6_2_PHASE_PIPE_TEMP, 0, std::chrono::steady_clock::time_point{}},
-        //ServiceCodeRuntime{Status::REQUEST_CODE::TH32_SUCTION_PIPE_TEMP, 0, std::chrono::steady_clock::time_point{}},
-        //ServiceCodeRuntime{Status::REQUEST_CODE::TH8_HEAT_SINK_TEMP, 0, std::chrono::steady_clock::time_point{}},
-        //ServiceCodeRuntime{Status::REQUEST_CODE::DISCHARGE_SUPERHEAT, 0, std::chrono::steady_clock::time_point{}},
-        //ServiceCodeRuntime{Status::REQUEST_CODE::SUB_COOL, 0, std::chrono::steady_clock::time_point{}},
-        ServiceCodeRuntime{Status::REQUEST_CODE::FAN_SPEED, 0, std::chrono::steady_clock::time_point{}}
+        ServiceCodeRuntime{Status::REQUEST_CODE::COMPRESSOR_STARTS, false, 30*60, std::chrono::steady_clock::now() - std::chrono::seconds(60*60)},
+        ServiceCodeRuntime{Status::REQUEST_CODE::TH4_DISCHARGE_TEMP, true, 0, std::chrono::steady_clock::time_point{}},
+        ServiceCodeRuntime{Status::REQUEST_CODE::TH3_LIQUID_PIPE1_TEMP, true, 0, std::chrono::steady_clock::time_point{}},
+        ServiceCodeRuntime{Status::REQUEST_CODE::TH6_2_PHASE_PIPE_TEMP, true, 0, std::chrono::steady_clock::time_point{}},
+        //ServiceCodeRuntime{Status::REQUEST_CODE::TH32_SUCTION_PIPE_TEMP, true, 0, std::chrono::steady_clock::time_point{}},
+        //ServiceCodeRuntime{Status::REQUEST_CODE::TH8_HEAT_SINK_TEMP, true, 0, std::chrono::steady_clock::time_point{}},
+        //ServiceCodeRuntime{Status::REQUEST_CODE::DISCHARGE_SUPERHEAT, true, 0, std::chrono::steady_clock::time_point{}},
+        //ServiceCodeRuntime{Status::REQUEST_CODE::SUB_COOL, true, 0, std::chrono::steady_clock::time_point{}},
+        ServiceCodeRuntime{Status::REQUEST_CODE::FAN_SPEED, false, 0, std::chrono::steady_clock::time_point{}}
     };
 
     bool EcodanHeatpump::dispatch_next_status_cmd()
@@ -261,12 +262,17 @@ namespace ecodan
 
         loopIndex = (loopIndex + 1) % MAX_STATUS_CMD_SIZE;
 
+        // only execute when we have sensors and a ftc version is known, since ftc7 gets a lot for free
         if (hasRequestCodeSensors && loopIndex == 0) {
             int counter = 0;
             while (counter <= MAX_SERVICE_CODE_CMD_SIZE && activeRequestCode == Status::REQUEST_CODE::NONE) {
                 counter++;
                 serviceCodeCmdIndex = (serviceCodeCmdIndex + 1) % MAX_SERVICE_CODE_CMD_SIZE;
                 auto& request = serviceCodeCmdQueue[serviceCodeCmdIndex];
+
+                // check if svc code should be executed
+                if (status.ReportsExtendedOutdoorUnitThermistors && request.IsOutdoorExtendedThermistor)
+                    continue;
 
                 if (request.SecondsBetweenCalls > 0) {
                     auto allow_run = std::chrono::steady_clock::now() - request.LastAttempt > std::chrono::seconds(request.SecondsBetweenCalls);

@@ -12,7 +12,7 @@ esp32:
     # Custom sdkconfig options
     sdkconfig_options:
       COMPILER_OPTIMIZATION_SIZE: y
-  
+
 uart:
   - id: uart_ecodan
     rx_pin:

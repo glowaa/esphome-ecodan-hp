@@ -48,7 +48,7 @@ namespace ecodan
                 if (res[3] == 2) {
                     switch(res_request_code) {
                         case Status::REQUEST_CODE::COMPRESSOR_STARTS:
-                            status.RcCompressorStarts = res.get_int16_v2(4) * 100;
+                            status.RcCompressorStarts = res.get_uint16_v2(4) * 100;
                             publish_state("compressor_starts", static_cast<float>(status.RcCompressorStarts));
                         break;
                         case Status::REQUEST_CODE::TH4_DISCHARGE_TEMP:
@@ -70,6 +70,10 @@ namespace ecodan
                         case Status::REQUEST_CODE::TH8_HEAT_SINK_TEMP:
                             status.RcOuHeatSinkTemp = res.get_int16_v2(4);
                             publish_state("ou_heatsink_temp", status.RcOuHeatSinkTemp); 
+                        break;
+                        case Status::REQUEST_CODE::TH33_SURFACE_TEMP:
+                            status.RcOuCompressorSurfaceTemp = res.get_int16_v2(4);
+                            publish_state("ou_compressor_surface_temp", status.RcOuCompressorSurfaceTemp); 
                         break;
                         case Status::REQUEST_CODE::DISCHARGE_SUPERHEAT:
                             status.RcDischargeSuperHeatTemp = res.get_int16_v2(4);
@@ -212,6 +216,40 @@ namespace ecodan
             publish_state("mixing_tank_temp", status.MixingTankTemperature);
             publish_state("hp_refrigerant_condensing_temp", status.HpRefrigerantCondensingTemperature);
             //ESP_LOGE(TAG, "0x0f offset 6: \t%f (v1), \t%f (v2), \t%f (v3)", res.get_float8(6), res.get_float8_v2(6), res.get_float8_v3(6));
+ 
+            // detect if unit reports extended 0x0f messages
+            if (!status.ReportsExtendedOutdoorUnitThermistors) {
+                for (auto i = 7; i < 15; i++) {
+                    if (res[i] != 0) {
+                        status.ReportsExtendedOutdoorUnitThermistors = true;
+                        break;
+                    }
+                }
+            } else {
+                status.RcDischargeTemp = static_cast<uint8_t>(res[7]);
+                publish_state("discharge_temp", status.RcDischargeTemp);
+
+                status.RcOuLiquidPipeTemp = res.get_float8(8, 39.0f);
+                publish_state("ou_liquid_pipe_temp", status.RcOuLiquidPipeTemp); 
+
+                status.RcOuTwoPhasePipeTemp = res.get_float8(9, 39.0f);
+                publish_state("ou_two_phase_pipe_temp", status.RcOuTwoPhasePipeTemp); 
+
+                status.RcOuSuctionPipeTemp = res.get_float8(10, 39.0f);
+                publish_state("ou_suction_pipe_temp", status.RcOuSuctionPipeTemp); 
+
+                status.RcOuHeatSinkTemp = static_cast<uint8_t>(res[11]) - 40.0f;
+                publish_state("ou_heatsink_temp", status.RcOuHeatSinkTemp); 
+
+                status.RcOuCompressorSurfaceTemp = static_cast<uint8_t>(res[12]) - 40.0f;
+                publish_state("ou_compressor_surface_temp", status.RcOuCompressorSurfaceTemp); 
+                
+                status.RcDischargeSuperHeatTemp = static_cast<uint8_t>(res[13]);
+                publish_state("super_heat_temp", status.RcDischargeSuperHeatTemp);
+
+                status.RcSubCoolTemp =  res.get_float8(14, 39.0f);
+                publish_state("sub_cool_temp", status.RcSubCoolTemp);
+            }
             break;  
         case GetType::EXTERNAL_STATE:
             // 1 = IN1 Thermostat heat/cool request
