@@ -319,7 +319,7 @@ namespace ecodan
 
             publish_state("status_power", status.Power == Status::PowerMode::ON);
             publish_state("status_dhw_eco", status.HotWaterMode == Status::DhwMode::ECO);
-            publish_state("status_operation", static_cast<float>(status.Operation));
+            //publish_state("status_operation", static_cast<float>(status.Operation));
             publish_state("status_heating_cooling", static_cast<float>(status.HeatingCoolingMode));
             publish_state("status_heating_cooling_z2", static_cast<float>(status.HeatingCoolingModeZone2));
 
@@ -380,6 +380,10 @@ namespace ecodan
             // byte 6 = ftc, ft2b , ftc4, ftc5, ftc6
             status.Controller = res[6];
             publish_state("controller_version", static_cast<float>(status.Controller));
+
+            // byte 10 = R410A, R32, R290
+            status.RefrigerantCode = res[10];
+
             break;
         case GetType::DIP_SWITCHES:
             status.DipSwitch1 = res[1];
