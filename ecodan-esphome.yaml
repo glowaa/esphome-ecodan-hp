@@ -17,6 +17,10 @@ api:
 #  encryption:
 #    key: !secret heatpump_encryption_key
 
+# uncomment if you have multiple esp running
+# esphome:
+#   name_add_mac_suffix: true
+
 # external_components:
 # - source:
 #     type: local
@@ -67,7 +71,7 @@ packages:
             #confs/ecodan-labels-fr.yaml,
             #confs/ecodan-labels-de.yaml,
             #confs/ecodan-labels-fi.yaml,
-            #confs/debug.yaml,
+            confs/debug.yaml,
             confs/wifi.yaml
            ]
 
