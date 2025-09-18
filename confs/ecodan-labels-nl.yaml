@@ -126,3 +126,7 @@ substitutions:
   ou_compressor_surface_temp: Buitenunit Compressor Oppervlakte temperatuur
   super_heat_temp: Discharge Superheat temperatuur
   sub_cool_temp: Subcooling temperatuur
+  status_short_cycle_lockout: 'Kortcyclus: Vergrendeling'
+  minimum_compressor_on_time: 'Kortcyclus: Minimale looptijd compressor'
+  lockout_duration: 'Kortcyclus: Blokkeertijd (min)'
+  short_cycle_mitigation_button: 'Kortcyclus: Blokkering opheffen'
