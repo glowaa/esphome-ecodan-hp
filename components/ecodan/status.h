@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#define IS_BIT_SET(value, bit) (((value) & (1U << (bit))) != 0)
 
 namespace esphome {
 namespace ecodan 
@@ -179,6 +180,19 @@ namespace ecodan
         float RcSubCoolTemp;
         uint16_t RcFanSpeedRpm;
 
+        bool has_cooling() const {
+            // SW2-4
+            return IS_BIT_SET(DipSwitch2, 3);
+        }
+
+        bool has_independent_z2() const {
+            if (IS_BIT_SET(DipSwitch3, 5) && !IS_BIT_SET(DipSwitch2, 6)) // SW3-6 True, SW2-7 False
+                return false;
+            else if (IS_BIT_SET(DipSwitch2, 5) || IS_BIT_SET(DipSwitch2, 6)) // SW2-6 or SW2-7 True
+                return true;
+            return false;
+        }
+
         CONTROLLER_FLAG get_svc_flags() const
         {
             CONTROLLER_FLAG flag;
@@ -206,11 +220,34 @@ namespace ecodan
             return false;
         }
 
+        bool is_auto_adaptive_heating(Zone zone) const {
+            auto mode = zone == Zone::ZONE_1 ? HeatingCoolingMode : HeatingCoolingModeZone2;
+
+            if (mode == HpMode::HEAT_FLOW_TEMP) {
+                if (ServerControl)
+                    return zone == Zone::ZONE_1 ? !ProhibitHeatingZ1 : !ProhibitHeatingZ2;
+                return true;
+            }
+            return false;
+        }
+
         bool is_cooling(Zone zone) const {
             auto mode = zone == Zone::ZONE_1 ? HeatingCoolingMode : HeatingCoolingModeZone2;
 
             if (mode == HpMode::COOL_FLOW_TEMP || mode == HpMode::COOL_ROOM_TEMP)
                 return true;
+
+            return false;
+        }
+
+        bool is_auto_adaptive_cooling(Zone zone) const {
+            auto mode = zone == Zone::ZONE_1 ? HeatingCoolingMode : HeatingCoolingModeZone2;
+
+            if (mode == HpMode::COOL_FLOW_TEMP ) {
+                if (ServerControl)
+                    return zone == Zone::ZONE_1 ? !ProhibitCoolingZ1 : !ProhibitCoolingZ2;
+                return true;
+            }
 
             return false;
         }
