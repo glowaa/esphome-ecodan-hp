@@ -16,7 +16,7 @@ esp32:
 uart:
   id: uart_ecodan
   rx_pin:
-    number: GPIO2
+    number: GPIO3
     mode:
       input: true
       pullup: true
@@ -39,5 +39,5 @@ sensor:
   - platform: internal_temperature
     name: ${internal_esp_temperature}
     entity_category: diagnostic
-    unit_of_measurement: "°C"
+    unit_of_measurement: "°F"
     device_class: temperature
