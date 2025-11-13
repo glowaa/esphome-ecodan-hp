@@ -1,5 +1,5 @@
 substitutions:
-  uart_rx_pin: 2
+  uart_rx_pin: 3
   uart_tx_pin: 1
 
 esphome:
@@ -46,5 +46,5 @@ sensor:
   - platform: internal_temperature
     name: ${internal_esp_temperature}
     entity_category: diagnostic
-    unit_of_measurement: "°C"
+    unit_of_measurement: "°F"
     device_class: temperature
