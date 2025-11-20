@@ -134,6 +134,7 @@ substitutions:
   short_cycle_mitigation_button: 'Ciclo corto: Cancelar bloqueo'
   predictive_short_cycle_control_enabled: 'Ciclo corto: Prevención Predictiva'
   predictive_short_cycle_high_delta_time_window: 'Ciclo corto: Duración de Delta Alto'
+  predictive_short_cycle_high_delta_threshold: 'Ciclo corto: Umbral Alto de Delta'
   status_predictive_boost_active: 'Ciclo corto: Impulso Predictivo Activo'
   auto_adaptive_control_enabled: 'Autoadaptativo: Control'
   maximum_heating_flow_temp: 'Autoadaptativo: Temp. Máx. de Flujo Calefacción'
@@ -149,6 +150,7 @@ substitutions:
   heating_system_type_option_rad: 'Radiadores'
   auto_adaptive_setpoint_bias: 'Autoadaptativo: Bias de Consigna'
   temperature_feedback: 'Autoadaptativo: Feedback de Temperatura Ambiente Actual'
+  defrost_risk_handling_enabled: 'Autoadaptativo: Mitigación de Desescarche'
   total_increasing_heating_consumed: Consumo Total Calefacción
   total_increasing_heating_delivered: Producción Total Calefacción
   total_increasing_cool_consumed: Consumo Total Refrigeración

@@ -134,6 +134,7 @@ substitutions:
   short_cycle_mitigation_button: 'Kort cykel: Avbryt lås'
   predictive_short_cycle_control_enabled: 'Kort cykel: Förebyggande Skydd'
   predictive_short_cycle_high_delta_time_window: 'Kort cykel: Hög Deltavaraktighet'
+  predictive_short_cycle_high_delta_threshold: 'Kort cykel: Hög Deltatröskel'
   status_predictive_boost_active: 'Kort cykel: Prediktiv Boost Aktiv'
   auto_adaptive_control_enabled: 'Autoadaptiv: Styrning'
   maximum_heating_flow_temp: 'Autoadaptiv: Max. Framledningstemp. Värme'
@@ -149,6 +150,7 @@ substitutions:
   heating_system_type_option_rad: 'Radiatorer'
   auto_adaptive_setpoint_bias: 'Autoadaptiv: Börvärdes-bias'
   temperature_feedback: 'Autoadaptiv: Återkoppling Aktuell Rumstemperatur'
+  defrost_risk_handling_enabled: 'Autoadaptiv: Avfrostningsreducering'
   total_increasing_heating_consumed: Totalförbrukning Värme
   total_increasing_heating_delivered: Total Levererad Värme
   total_increasing_cool_consumed: Totalförbrukning Kyla

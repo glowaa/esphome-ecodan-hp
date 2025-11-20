@@ -133,6 +133,7 @@ substitutions:
   short_cycle_mitigation_button: 'Kort syklus: Opphev lås'
   predictive_short_cycle_control_enabled: 'Kort syklus: Forebyggende Beskyttelse'
   predictive_short_cycle_high_delta_time_window: 'Kort syklus: Høy Delta Varighet'
+  predictive_short_cycle_high_delta_threshold: 'Kort syklus: Høy Delta terskel'
   status_predictive_boost_active: 'Kort syklus: Forutsigende Boost Aktiv'
   auto_adaptive_control_enabled: 'Autoadaptiv: Kontroll'
   maximum_heating_flow_temp: 'Autoadaptiv: Maks. Turtemperatur Varme'
@@ -148,6 +149,7 @@ substitutions:
   heating_system_type_option_rad: 'Radiatorer'
   auto_adaptive_setpoint_bias: 'Autoadaptiv: Settpunkt-bias'
   temperature_feedback: 'Autoadaptiv: Tilbakemelding Nåværende Romtemperatur'
+  defrost_risk_handling_enabled: 'Autoadaptiv: Avrimingsreduksjon'
   total_increasing_heating_consumed: Totalt Forbruk Varme
   total_increasing_heating_delivered: Totalt Levert Varme
   total_increasing_cool_consumed: Totalt Forbruk Kjøling

@@ -134,6 +134,7 @@ substitutions:
   short_cycle_mitigation_button: 'Kortcyclus: Blokkering opheffen'
   predictive_short_cycle_control_enabled: 'Kortcyclus: Pendeldetectie'
   predictive_short_cycle_high_delta_time_window: 'Kortcyclus: Hoge Delta Duur'
+  predictive_short_cycle_high_delta_threshold: 'Kortcyclus: Drempelwaarde Hoge Delta'
   status_predictive_boost_active: 'Kortcyclus: Voorspellende Boost Actief'
   auto_adaptive_control_enabled: 'Auto-Adaptief: Regeling'
   maximum_heating_flow_temp: 'Auto-Adaptief: Max. Aanvoertemperatuur Verw.'
@@ -149,6 +150,7 @@ substitutions:
   heating_system_type_option_rad: 'Radiatoren'
   auto_adaptive_setpoint_bias: 'Auto-Adaptief: Setpoint Bias'
   temperature_feedback: 'Auto-Adaptief: Terugkoppeling Huidige Kamertemperatuur'
+  defrost_risk_handling_enabled: 'Auto-Adaptief: Defrosts Beperken'
   total_increasing_heating_consumed: Totaal Verbruik Verwarming
   total_increasing_heating_delivered: Totaal Geleverd Verwarming
   total_increasing_cool_consumed: Totaal Verbruik Koeling

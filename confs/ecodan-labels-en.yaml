@@ -135,6 +135,7 @@ substitutions:
   short_cycle_mitigation_button: 'Short-Cycle: Cancel Lockout'
   predictive_short_cycle_control_enabled: 'Short-Cycle: Predictive Prevention'
   predictive_short_cycle_high_delta_time_window: 'Short-Cycle: High Delta Duration'
+  predictive_short_cycle_high_delta_threshold: 'Short-Cycle: High Delta Threshold'
   status_predictive_boost_active: 'Short-Cycle: Predictive Boost Active'
   # auto adaptive translations
   auto_adaptive_control_enabled: 'Auto-Adaptive: Control'
@@ -151,6 +152,7 @@ substitutions:
   heating_system_type_option_rad: 'Radiators'
   auto_adaptive_setpoint_bias: 'Auto-Adaptive: Setpoint Bias'
   temperature_feedback: 'Auto-Adaptive: Current Room Temperature Feedback'
+  defrost_risk_handling_enabled: 'Auto-Adaptive: Defrost Mitigation'
 
   # total increasing energy totals
   total_increasing_heating_consumed: Total Heating Consumed

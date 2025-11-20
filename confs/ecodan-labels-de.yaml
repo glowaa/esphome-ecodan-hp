@@ -133,6 +133,7 @@ substitutions:
   short_cycle_mitigation_button: 'Kurzzyklus: Sperre abbrechen'
   predictive_short_cycle_control_enabled: 'Kurzzyklus: Vorausschauende Verhinderung'
   predictive_short_cycle_high_delta_time_window: 'Kurzzyklus: Hohe Delta-Dauer'
+  predictive_short_cycle_high_delta_threshold: 'Kurzzyklus: Hohe Delta-Schwelle'
   status_predictive_boost_active: 'Kurzzyklus: Vorausschauender Boost Aktiv'
   auto_adaptive_control_enabled: 'Auto-Adaptiv: Steuerung'
   maximum_heating_flow_temp: 'Auto-Adaptiv: Max. Vorlauftemperatur Heizen'
@@ -148,6 +149,7 @@ substitutions:
   heating_system_type_option_rad: 'Heizkörper'
   auto_adaptive_setpoint_bias: 'Auto-Adaptiv: Sollwert-Bias'
   temperature_feedback: 'Auto-Adaptiv: Rückmeldung Aktuelle Raumtemperatur'
+  defrost_risk_handling_enabled: 'Auto-Adaptiv: Abtau-Reduzierung'
   total_increasing_heating_consumed: Gesamtverbrauch Heizen
   total_increasing_heating_delivered: Gesamtertrag Heizen
   total_increasing_cool_consumed: Gesamtverbrauch Kühlen
