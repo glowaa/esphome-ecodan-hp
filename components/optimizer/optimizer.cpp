@@ -78,11 +78,9 @@ namespace esphome
             bool is_cooling_mode = status.has_cooling() && status.is_auto_adaptive_cooling(zone);
             bool is_cooling_active = status.Operation == esphome::ecodan::Status::OperationMode::COOL_ON;
 
-            if (is_heating_active && status.has_2zones() && status.has_independent_z2())
+            if (is_heating_active && status.has_2zones())
             {
                 auto multizone_status = status.MultiZoneStatus;
-                bool multizone_circulation_pump_active = (status.WaterPump2Active || status.WaterPump3Active);
-
                 if (i == 0 && (multizone_status == 0 || multizone_status == 3))
                 {
                     is_heating_active = false;
@@ -93,12 +91,9 @@ namespace esphome
                 }
 
                 // for z2 with z1/z2 circulation pump and mixing tank, demand translate into pump being active
-                if (multizone_circulation_pump_active)
+                if (status.has_independent_z2() && (status.WaterPump2Active || status.WaterPump3Active))
                     is_heating_active = true;
             }
-
-            if (!is_heating_mode && !is_cooling_mode)
-                return;
 
             float setpoint_bias = this->state_.auto_adaptive_setpoint_bias->state;
             if (isnan(setpoint_bias))
@@ -109,6 +104,9 @@ namespace esphome
             float requested_flow_temp = (i == 0) ? status.Zone1FlowTemperatureSetPoint : status.Zone2FlowTemperatureSetPoint;
             float actual_flow_temp = status.has_independent_z2() ? ((i == 0) ? status.Z1FeedTemperature : status.Z2FeedTemperature) : status.HpFeedTemperature;
             float actual_return_temp = status.has_independent_z2() ? ((i == 0) ? status.Z1ReturnTemperature : status.Z2ReturnTemperature) : status.HpReturnTemperature;
+            
+            if (!is_heating_mode && !is_cooling_mode)
+                return;
 
             if (this->state_.temperature_feedback_source->active_index().value_or(0) == 1)
             {
@@ -119,6 +117,7 @@ namespace esphome
 
             ESP_LOGD(OPTIMIZER_TAG, "Processing Zone %d: Room=%.1f, Target=%.1f, Actual Feedtemp: %.1f, Return temp: %.1f, Outside=%.1f, Bias=%.1f, heating: %d, cooling: %d",
                      (i + 1), room_temp, room_target_temp, actual_flow_temp, actual_return_temp, actual_outside_temp, setpoint_bias, is_heating_active, is_cooling_active);
+
             room_target_temp += setpoint_bias;
 
             float error = is_heating_mode ? (room_target_temp - room_temp)
@@ -153,7 +152,7 @@ namespace esphome
                 {
                     const float DEFROST_RISK_MIN_TEMP = -2.0f;
                     const float DEFROST_RISK_MAX_TEMP = 3.0f;
-                    const uint32_t DEFROST_MEMORY_MS = 1 * 3600 * 1000UL;
+                    const uint32_t DEFROST_MEMORY_MS = 10 * 60 * 1000UL;
                     bool defrost_handling_enabled = this->state_.defrost_risk_handling_enabled->state;
 
                     bool is_defrost_weather = false;
