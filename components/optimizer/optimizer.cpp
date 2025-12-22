@@ -71,6 +71,84 @@ namespace esphome
             }
         }
 
+        float Optimizer::calculate_smart_boost(int profile, float error) {
+
+            if (!this->state_.smart_boost_enabled->state) {
+                this->current_stagnation_boost_ = 1.0f;
+                this->stagnation_start_time_ = 0;
+                return 1.0f;
+            }
+
+            uint32_t initial_wait_ms;
+            uint32_t step_interval_ms;
+            float max_boost_limit;
+            float step_size;
+            
+            if (profile <= 1) { // ufh 
+                initial_wait_ms = 3600000;  // 60m
+                step_interval_ms = 1800000; // 30m
+                max_boost_limit = 1.5f;     // Max +50% 
+                step_size = 0.15f;
+            } 
+            else if (profile >= 4) { // radiator
+                initial_wait_ms = 1200000;  // 20m
+                step_interval_ms = 600000;  // 10m
+                max_boost_limit = 2.5f;     // max +250%
+                step_size = 0.20f;
+            } 
+            else { // hybbrid
+                initial_wait_ms = 2700000;  // 45m
+                step_interval_ms = 1200000; // 20m
+                max_boost_limit = 2.0f;     // max +200%  
+                step_size = 0.15f;
+            }
+
+            bool is_stagnant = (error > 0.1f) && (error >= this->last_error_ - 0.01f);            
+            float target_boost = 1.0f;
+
+            if (is_stagnant) {
+                if (this->stagnation_start_time_ == 0)
+                    this->stagnation_start_time_ = millis();
+
+                uint32_t stuck_duration = millis() - this->stagnation_start_time_;
+
+                if (stuck_duration > initial_wait_ms) {
+                    uint32_t overtime = stuck_duration - initial_wait_ms;
+                    int step_count = overtime / step_interval_ms;
+
+                    // Calculate push based on configured step_size
+                    float extra_push = (step_count + 1) * step_size;
+                    
+                    target_boost = 1.0f + extra_push;
+                    if (target_boost > max_boost_limit) 
+                        target_boost = max_boost_limit;
+                } else {
+                    target_boost = this->current_stagnation_boost_;
+                }
+                
+                this->current_stagnation_boost_ = target_boost;
+
+            } else {
+                // decay when we see change
+                this->stagnation_start_time_ = 0; 
+                
+                if (this->current_stagnation_boost_ > 1.0f) {
+                    const float UPDATE_INTERVAL_MS = 300000.0f; // 5m
+                    float decay_step = step_size * (UPDATE_INTERVAL_MS / (float)step_interval_ms);
+                    this->current_stagnation_boost_ -= decay_step;
+                    
+                    if (this->current_stagnation_boost_ < 1.0f) {
+                        this->current_stagnation_boost_ = 1.0f;
+                    }
+                } else {
+                    this->current_stagnation_boost_ = 1.0f;
+                }
+            }
+
+            this->last_error_ = error;    
+            return this->current_stagnation_boost_;
+        }
+
         void Optimizer::process_adaptive_zone_(
             std::size_t i,
             const ecodan::Status &status,
@@ -145,13 +223,14 @@ namespace esphome
             float error_normalized = error_positive / max_error_range;
             float x = fmin(error_normalized, 1.0f);
             float error_factor = use_linear_error ? x : x * x * (3.0f - 2.0f * x);
+            float smart_boost = is_heating_mode ? this->calculate_smart_boost(heating_type_index, error) : 1.0f;
             
             // apply cold factor
             float dynamic_min_delta_t = base_min_delta_t + (cold_factor * (min_delta_cold_limit - base_min_delta_t));
-            float target_delta_t = dynamic_min_delta_t + error_factor * (max_delta_t - dynamic_min_delta_t);
+            float target_delta_t = dynamic_min_delta_t + error_factor * smart_boost * (max_delta_t - dynamic_min_delta_t);
 
-            ESP_LOGD(OPTIMIZER_TAG, "Effective delta T: %.2f, cold factor: %.2f, dynamic min delta T: %.2f, error factor: %.2f, linear profile: %d", 
-                target_delta_t, cold_factor, dynamic_min_delta_t, error_factor, use_linear_error);
+            ESP_LOGD(OPTIMIZER_TAG, "Effective delta T: %.2f, cold factor: %.2f, dynamic min delta T: %.2f, error factor: %.2f, smart boost: %.2f, linear profile: %d", 
+                target_delta_t, cold_factor, dynamic_min_delta_t, error_factor, smart_boost, use_linear_error);
 
             if (is_heating_mode && is_heating_active)
             {
