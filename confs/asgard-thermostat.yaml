@@ -2,6 +2,7 @@ number:
   - platform: template
     id: asgard_vt_input_${zone_identifier}
     name: "Virtual Thermostat Input ${zone_identifier}" 
+    device_class: temperature
     unit_of_measurement: "°C"
     optimistic: true
     restore_value: true
@@ -71,9 +72,9 @@ climate:
       max_temperature: 30
       temperature_step: 0.1
     
-    heat_deadband: 0.5
+    heat_deadband: 0
     heat_overrun: 0.5
-    cool_deadband: 0.5
+    cool_deadband: 0
     cool_overrun: 0.5
     
     heat_action:
