@@ -6,6 +6,8 @@
 #include <optional>
 #include <atomic>
 
+#include "esp_wifi.h"
+
 #include "esphome.h"
 #include "esphome/core/component.h"
 #include "esphome/components/uart/uart.h"
@@ -68,6 +70,7 @@ namespace ecodan
         }
 
         // exposed as external component commands
+        void set_ignore_slave_cmd(bool ignoreCmds) { ignoreSlaveCMDs = ignoreCmds; };
         void set_room_temperature(float value, esphome::ecodan::Zone zone);
         void set_flow_target_temperature(float value, esphome::ecodan::Zone zone);
         void set_dhw_target_temperature(float value);
@@ -107,7 +110,8 @@ namespace ecodan
         uart::UARTComponent *uart_ = nullptr;
         uart::UARTComponent *proxy_uart_ = nullptr;
         uint8_t initialCount = 0;
-        bool slave_detected_ = false;
+        bool slaveDetected = false;
+        bool ignoreSlaveCMDs = false;
 
         Status status;
         float temperatureStep = 0.5f;
@@ -193,7 +197,6 @@ namespace ecodan
 
     class EcodanVirtualThermostat : public thermostat::ThermostatClimate {
     public:
-
         void control(const climate::ClimateCall &call) override {
 
             if (call.get_target_temperature().has_value()) {

@@ -5,13 +5,27 @@ Welcome to the manual for the Asgard PCB for Ecodan heatpumps. This board allows
 ---
 
 ## Ordering & Availability
-The **Asgard PCB** will be available for direct purchase here very soon.
-
 * **Product:** Asgard PCB in 3d printed casing + Connector cable
 * **Price:** € 65,- (including VAT)
 * **Delivery:** Shipped within 3 business days from The Netherlands (When in stock)
 
-> [!NOTE] *The secure payment link will be added to this section once the payment system is live.*
+# ⚡ Asgard is Now Shipping!
+
+| Standard Order (NL/EU) | UK Special Bundle (3 Units) |
+| :--- | :--- |
+| [![Order Asgard](https://img.shields.io/badge/Order-Single%20Unit-0070BA?style=for-the-badge&logo=stripe&logoColor=white)](https://buy.stripe.com/aFa6oIblrcIPaNN3Wq4AU00) | [![Order UK Bundle](https://img.shields.io/badge/Order-UK%203--Unit%20Bundle-0070BA?style=for-the-badge&logo=stripe&logoColor=white)](https://buy.stripe.com/14AeVefBH8sz9JJ0Ke4AU01) |
+
+> [!IMPORTANT]
+> **Shipping Selection Notice**
+> To avoid shipping delays, please ensure you select the correct tier during checkout:
+> * **Netherlands (NL):** Select the "Verzending Nederland" shipping option.
+> * **European Union (EU):** Select the "Shipping to EU" option for EU countries.
+>
+> **United Kingdom (UK) Customers:**
+> Due to UK VAT regulations, we only process UK orders with a total value exceeding **£135**.
+> * **VAT Not Included:** The bundle price excludes UK VAT. UK VAT (20%) will be collected by the carrier upon delivery.
+> * **Handling Fees:** Please be aware that the carrier may charge an additional customs clearance handling fee.
+> * For custom larger orders, please **contact us via email** to arrange a manual shipment.
 
 ### Shipping & Returns policy
 * **Shipping costs:** Calculated at checkout (Available for NL & EU). UK buyers please contact me by email.
@@ -97,6 +111,7 @@ Please check if your package contains:
 > The internal unit of your heat pump (Hydrobox/Cylinder Unit) operates on mains voltage.
 > * **ALWAYS switch off the power** at the fuse box/breaker panel before opening the casing.
 > * Wait at least 5 minutes after switching off power to allow internal capacitors to discharge.
+> * Don't connect the usb-c to a computer/power outlet when Asgard is connected and powered by the heatpump.
 > * Always verify that the power is off using a multimeter.
 
 > [!CAUTION]
@@ -126,8 +141,8 @@ Look at the main control board of the heat pump for a connector labeled **CN105*
 1.  Plug the provided cable into the **CN105** port on the heat pump. The plug is keyed and fits only one way. Do not force it.
 2.  Plug the other end of the cable into the **Asgard PCB** (Use the **HP** port).
 3. [Optional] If you would like to use the virtual thermostat that controls `IN1/IN6` 
-    - Single zone 1: connect 2 wires from Asgard PCB `R1` to `IN1` on your main FTC board.
-    - Dual zone 2: connect 2 wires from `R2` to `IN6`
+    - Single zone 1: connect 2 wires from Asgard PCB `R1` to `IN1` on your main FTC board. When using `R1` please ensure that `SW2-1` is in the `ON` position.
+    - Dual zone 2: connect 2 wires from `R2` to `IN6`. When using `R2` please ensure that `SW3-1` is in the `ON` position
 4. [Optional] The firmware builtin support for number of DS18x20 temperature sensors.
 
 ### Step 4: Mounting
