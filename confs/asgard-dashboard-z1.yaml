@@ -20,6 +20,17 @@ asgard_dashboard:
   dhw_flow_temp_drop_id:             dhw_flow_temp_drop
   dhw_consumed_id:                   dhw_consumed
   dhw_delivered_id:                  dhw_delivered
+  dhw_cop_id:                        ddhw_cop
+
+  # Heating Performance
+  heating_consumed_id:               heating_consumed
+  heating_produced_id:               heating_delivered
+  heating_cop_id:                    heating_cop
+
+  # Cooling Performance
+  cooling_consumed_id:               cool_consumed
+  cooling_produced_id:               cool_delivered
+  cooling_cop_id:                    cool_cop
 
   # ── Binary sensors ────────────────────────────────────────────────────────
   status_compressor_id:              status_compressor
@@ -40,20 +51,23 @@ asgard_dashboard:
 
   # ── Selects ─────────────────────────────────────────────────────────────
   sel_heating_system_type_id:        heating_system_type 
-  sel_room_temp_source_z1_id:        temperature_feedback_source
-  #sel_room_temp_source_z2_id:      temperature_feedback_source   # for now global setting
+  sel_room_temp_source_z1_id:        temperature_feedback_source_z1
   operating_mode_z1_id: heatpump_select_operating_mode
-  #operating_mode_z2_id: heatpump_select_operating_mode_z2 
   sel_temp_source_z1_id: asgard_vt_temp_sensor_source_z1
  
   # ── Numbers ─────────────────────────────────────────────────────────────
   num_aa_setpoint_bias_id:           auto_adaptive_setpoint_bias
   num_max_flow_temp_id:              maximum_heating_flow_temp
   num_min_flow_temp_id:              minimum_heating_flow_temp
-  num_hysteresis_z1_id:              thermostat_hysteresis
-  # num_hysteresis_z2_id:            num_thermostat_hysteresis_z2  # for now global setting
+  num_hysteresis_z1_id:              thermostat_hysteresis_z1
 
   # ── Climate ───────────────────────────────────────────────────────────────
   dhw_climate_id:                    heatpump_climate_dhw
   virtual_climate_z1_id:             virtual_climate_z1
-  # virtual_climate_z2_id:           virtual_climate_z2   
+  heatpump_climate_z1_id: heatpump_climate_room_z1
+  flow_climate_z1_id: heatpump_climate_z1
+
+  # ── Cycle prevention ───────────────────────────────────────────────────────────────
+  predictive_short_cycle_control_enabled_id: predictive_short_cycle_control_enabled 
+  predictive_short_cycle_high_delta_time_window_id: predictive_short_cycle_high_delta_time_window
+  predictive_short_cycle_high_delta_threshold_id: predictive_short_cycle_high_delta_threshold

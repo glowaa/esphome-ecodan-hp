@@ -34,7 +34,14 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional("dhw_flow_temp_drop_id"):              cv.use_id(sensor.Sensor),
         cv.Optional("dhw_consumed_id"):                    cv.use_id(sensor.Sensor),
         cv.Optional("dhw_delivered_id"):                   cv.use_id(sensor.Sensor),
-        
+        cv.Optional("dhw_cop_id"):                         cv.use_id(sensor.Sensor),
+        cv.Optional("heating_consumed_id"):                cv.use_id(sensor.Sensor),
+        cv.Optional("heating_produced_id"):                cv.use_id(sensor.Sensor),
+        cv.Optional("heating_cop_id"):                     cv.use_id(sensor.Sensor),
+        cv.Optional("cooling_consumed_id"):                cv.use_id(sensor.Sensor),
+        cv.Optional("cooling_produced_id"):                cv.use_id(sensor.Sensor),
+        cv.Optional("cooling_cop_id"):                     cv.use_id(sensor.Sensor),
+
         cv.Optional("z1_flow_temp_target_id"):             cv.use_id(sensor.Sensor),
         cv.Optional("z2_flow_temp_target_id"):             cv.use_id(sensor.Sensor),
 
@@ -68,12 +75,23 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional("num_aa_setpoint_bias_id"):            cv.use_id(number.Number),
         cv.Optional("num_max_flow_temp_id"):               cv.use_id(number.Number),
         cv.Optional("num_min_flow_temp_id"):               cv.use_id(number.Number),
+        cv.Optional("num_max_flow_temp_z2_id"):            cv.use_id(number.Number),
+        cv.Optional("num_min_flow_temp_z2_id"):            cv.use_id(number.Number),
         cv.Optional("num_hysteresis_z1_id"):               cv.use_id(number.Number),
         cv.Optional("num_hysteresis_z2_id"):               cv.use_id(number.Number),
 
         cv.Optional("dhw_climate_id"):                     cv.use_id(climate.Climate),
         cv.Optional("virtual_climate_z1_id"):              cv.use_id(climate.Climate),
         cv.Optional("virtual_climate_z2_id"):              cv.use_id(climate.Climate),
+        cv.Optional("heatpump_climate_z1_id"):             cv.use_id(climate.Climate),
+        cv.Optional("heatpump_climate_z2_id"):             cv.use_id(climate.Climate),
+        cv.Required("flow_climate_z1_id"):                 cv.use_id(climate.Climate),
+        cv.Optional("flow_climate_z2_id"):                 cv.use_id(climate.Climate),
+
+        cv.Optional("predictive_short_cycle_control_enabled_id"):      cv.use_id(switch.Switch),
+        cv.Optional("predictive_short_cycle_high_delta_time_window_id"): cv.use_id(number.Number),
+        cv.Optional("predictive_short_cycle_high_delta_threshold_id"):   cv.use_id(number.Number),
+
     }
 ).extend(cv.COMPONENT_SCHEMA)
 
@@ -109,6 +127,13 @@ async def to_code(config):
         ("dhw_flow_temp_drop_id",             "set_dhw_flow_temp_drop"),
         ("dhw_consumed_id",                   "set_dhw_consumed"),
         ("dhw_delivered_id",                  "set_dhw_delivered"),
+        ("dhw_cop_id",                        "set_dhw_cop"),
+        ("heating_consumed_id",               "set_heating_consumed"),
+        ("heating_produced_id",               "set_heating_produced"),
+        ("heating_cop_id",                    "set_heating_cop"),
+        ("cooling_consumed_id",               "set_cooling_consumed"),
+        ("cooling_produced_id",               "set_cooling_produced"),
+        ("cooling_cop_id",                    "set_cooling_cop"),
         ("z1_flow_temp_target_id",            "set_z1_flow_temp_target"),
         ("z2_flow_temp_target_id",            "set_z2_flow_temp_target"),
         ("status_compressor_id",              "set_status_compressor"),
@@ -136,11 +161,20 @@ async def to_code(config):
         ("num_aa_setpoint_bias_id",           "set_num_aa_setpoint_bias"),
         ("num_max_flow_temp_id",              "set_num_max_flow_temp"),
         ("num_min_flow_temp_id",              "set_num_min_flow_temp"),
+        ("num_max_flow_temp_z2_id",           "set_num_max_flow_temp_z2"),
+        ("num_min_flow_temp_z2_id",           "set_num_min_flow_temp_z2"),
         ("num_hysteresis_z1_id",              "set_num_hysteresis_z1"),
         ("num_hysteresis_z2_id",              "set_num_hysteresis_z2"),
         ("dhw_climate_id",                    "set_dhw_climate"),
         ("virtual_climate_z1_id",             "set_virtual_climate_z1"),
         ("virtual_climate_z2_id",             "set_virtual_climate_z2"),
+        ("heatpump_climate_z1_id",            "set_heatpump_climate_z1"),
+        ("heatpump_climate_z2_id",            "set_heatpump_climate_z2"),
+        ("flow_climate_z1_id",                "set_flow_climate_z1"),
+        ("flow_climate_z2_id",                "set_flow_climate_z2"),
+        ("predictive_short_cycle_control_enabled_id",    "set_pred_sc_switch"),
+        ("predictive_short_cycle_high_delta_time_window_id", "set_pred_sc_time"),
+        ("predictive_short_cycle_high_delta_threshold_id",   "set_pred_sc_delta"),
     ]
 
     for conf_key, setter in pairs:

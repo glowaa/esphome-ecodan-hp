@@ -77,6 +77,14 @@ void EcodanDashboard::handle_state_(AsyncWebServerRequest *request) {
   j += "\"dhw_flow_temp_drop\":"              + sensor_str_(dhw_flow_temp_drop_) + ",";
   j += "\"dhw_consumed\":"                    + sensor_str_(dhw_consumed_) + ",";
   j += "\"dhw_delivered\":"                   + sensor_str_(dhw_delivered_) + ",";
+  j += "\"dhw_cop\":"                         + sensor_str_(dhw_cop_) + ",";
+
+  j += "\"heating_consumed\":"                + sensor_str_(heating_consumed_) + ",";
+  j += "\"heating_produced\":"                + sensor_str_(heating_produced_) + ",";
+  j += "\"heating_cop\":"                     + sensor_str_(heating_cop_) + ",";
+  j += "\"cooling_consumed\":"                + sensor_str_(cooling_consumed_) + ",";
+  j += "\"cooling_produced\":"                + sensor_str_(cooling_produced_) + ",";
+  j += "\"cooling_cop\":"                     + sensor_str_(cooling_cop_) + ",";
 
   j += "\"z1_flow_temp_target\":"             + sensor_str_(z1_flow_temp_target_) + ",";
   j += "\"z2_flow_temp_target\":"             + sensor_str_(z2_flow_temp_target_) + ",";
@@ -86,9 +94,13 @@ void EcodanDashboard::handle_state_(AsyncWebServerRequest *request) {
   
   j += "\"maximum_heating_flow_temp\":"       + number_str_(num_max_flow_temp_) + ",";
   j += "\"max_flow_lim\":"                    + number_traits_(num_max_flow_temp_) + ",";
-  
   j += "\"minimum_heating_flow_temp\":"       + number_str_(num_min_flow_temp_) + ",";
   j += "\"min_flow_lim\":"                    + number_traits_(num_min_flow_temp_) + ",";
+
+  j += "\"maximum_heating_flow_temp_z2\":"    + number_str_(num_max_flow_temp_z2_) + ",";
+  j += "\"max_flow_z2_lim\":"                 + number_traits_(num_max_flow_temp_z2_) + ",";
+  j += "\"minimum_heating_flow_temp_z2\":"    + number_str_(num_min_flow_temp_z2_) + ",";
+  j += "\"min_flow_z2_lim\":"                 + number_traits_(num_min_flow_temp_z2_) + ",";
 
   j += "\"thermostat_hysteresis_z1\":"        + number_str_(num_hysteresis_z1_) + ",";
   j += "\"hysteresis_z1_lim\":"               + number_traits_(num_hysteresis_z1_) + ",";
@@ -96,10 +108,32 @@ void EcodanDashboard::handle_state_(AsyncWebServerRequest *request) {
   j += "\"thermostat_hysteresis_z2\":"        + number_str_(num_hysteresis_z2_) + ",";
   j += "\"hysteresis_z2_lim\":"               + number_traits_(num_hysteresis_z2_) + ",";
 
+  j += "\"pred_sc_time\":"                    + number_str_(pred_sc_time_) + ",";
+  j += "\"pred_sc_time_lim\":"                + number_traits_(pred_sc_time_) + ",";
+  
+  j += "\"pred_sc_delta\":"                   + number_str_(pred_sc_delta_) + ",";
+  j += "\"pred_sc_delta_lim\":"               + number_traits_(pred_sc_delta_) + ",";  
+
   j += "\"z1_current_temp\":"                 + climate_current_str_(virtual_climate_z1_) + ",";
   j += "\"z1_setpoint\":"                     + climate_target_str_(virtual_climate_z1_) + ",";
+  j += "\"z1_action\":"                       + climate_action_str_(virtual_climate_z1_) + ",";
+
   j += "\"z2_current_temp\":"                 + climate_current_str_(virtual_climate_z2_) + ",";
   j += "\"z2_setpoint\":"                     + climate_target_str_(virtual_climate_z2_) + ",";
+  j += "\"z2_action\":"                       + climate_action_str_(virtual_climate_z2_) + ",";
+
+  j += "\"eco_z1_current\":"                  + climate_current_str_(heatpump_climate_z1_) + ",";
+  j += "\"eco_z1_setpoint\":"                 + climate_target_str_(heatpump_climate_z1_) + ",";
+  j += "\"eco_z1_action\":"                   + climate_action_str_(heatpump_climate_z1_) + ",";
+
+  j += "\"eco_z2_current\":"                  + climate_current_str_(heatpump_climate_z2_) + ",";
+  j += "\"eco_z2_setpoint\":"                 + climate_target_str_(heatpump_climate_z2_) + ",";
+  j += "\"eco_z2_action\":"                   + climate_action_str_(heatpump_climate_z2_) + ",";
+
+  j += "\"flow_z1_current\":"                 + climate_current_str_(flow_climate_z1_) + ",";
+  j += "\"flow_z1_setpoint\":"                + climate_target_str_(flow_climate_z1_) + ",";
+  j += "\"flow_z2_current\":"                 + climate_current_str_(flow_climate_z2_) + ",";
+  j += "\"flow_z2_setpoint\":"                + climate_target_str_(flow_climate_z2_) + ",";
 
   j += "\"status_compressor\":"               + std::string(bin_str_(status_compressor_)) + ",";
   j += "\"status_booster\":"                  + std::string(bin_str_(status_booster_)) + ",";
@@ -109,6 +143,7 @@ void EcodanDashboard::handle_state_(AsyncWebServerRequest *request) {
   j += "\"status_in6_request\":"              + std::string(bin_str_(status_in6_request_)) + ",";
   j += "\"zone2_enabled\":"                   + std::string(bin_state_(status_zone2_enabled_) ? "true" : "false") + ",";
 
+  j += "\"pred_sc_en\":"                      + sw_str_(pred_sc_switch_) + ",";
   j += "\"auto_adaptive_control_enabled\":"   + sw_str_(sw_auto_adaptive_) + ",";
   j += "\"defrost_risk_handling_enabled\":"   + sw_str_(sw_defrost_mit_) + ",";
   j += "\"smart_boost_enabled\":"             + sw_str_(sw_smart_boost_) + ",";
@@ -209,6 +244,7 @@ void EcodanDashboard::dispatch_set_(const std::string &key, const std::string &s
   if (key == "defrost_risk_handling_enabled") { doSwitch(sw_defrost_mit_);   return; }
   if (key == "smart_boost_enabled")           { doSwitch(sw_smart_boost_);   return; }
   if (key == "force_dhw")                     { doSwitch(sw_force_dhw_);     return; } 
+  if (key == "predictive_short_cycle_control_enabled") { doSwitch(pred_sc_switch_);   return; }
 
   auto doSelect = [&](select::Select *sel) {
     if (!sel) { ESP_LOGW(TAG, "Select not configured"); return; }
@@ -238,8 +274,13 @@ void EcodanDashboard::dispatch_set_(const std::string &key, const std::string &s
   if (key == "auto_adaptive_setpoint_bias") { doNumber(num_aa_setpoint_bias_); return; }
   if (key == "maximum_heating_flow_temp")   { doNumber(num_max_flow_temp_);    return; }
   if (key == "minimum_heating_flow_temp")   { doNumber(num_min_flow_temp_);    return; }
+  if (key == "maximum_heating_flow_temp_z2") { doNumber(num_max_flow_temp_z2_); return; }
+  if (key == "minimum_heating_flow_temp_z2") { doNumber(num_min_flow_temp_z2_); return; }
   if (key == "thermostat_hysteresis_z1")    { doNumber(num_hysteresis_z1_);    return; }
   if (key == "thermostat_hysteresis_z2")    { doNumber(num_hysteresis_z2_);    return; }
+
+  if (key == "predictive_short_cycle_high_delta_time_window")    { doNumber(pred_sc_time_);    return; }
+  if (key == "predictive_short_cycle_high_delta_threshold")    { doNumber(pred_sc_delta_);    return; }
 
   if (key == "dhw_setpoint" && dhw_climate_ != nullptr) {
     auto call = dhw_climate_->make_call();
@@ -259,6 +300,12 @@ void EcodanDashboard::dispatch_set_(const std::string &key, const std::string &s
   if (key == "virtual_climate_z1_setpoint") { doClimate(virtual_climate_z1_, "Z1"); return; }
   if (key == "virtual_climate_z2_setpoint") { doClimate(virtual_climate_z2_, "Z2"); return; }
 
+  if (key == "heatpump_climate_z1_setpoint") { doClimate(heatpump_climate_z1_, "Eco Z1"); return; }
+  if (key == "heatpump_climate_z2_setpoint") { doClimate(heatpump_climate_z2_, "Eco Z2"); return; }
+
+  if (key == "flow_climate_z1_setpoint")     { doClimate(flow_climate_z1_, "Flow Z1"); return; }
+  if (key == "flow_climate_z2_setpoint")     { doClimate(flow_climate_z2_, "Flow Z2"); return; }
+
   if (is_string) {
      ESP_LOGW(TAG, "Unknown string key: %s", key.c_str());
   }
@@ -269,6 +316,18 @@ std::string EcodanDashboard::sensor_str_(sensor::Sensor *s) {
   char buf[16];
   snprintf(buf, sizeof(buf), "%.2f", s->state);
   return std::string(buf);
+}
+
+std::string EcodanDashboard::climate_action_str_(climate::Climate *c) {
+  if (c == nullptr) return "\"off\"";
+  switch (c->action) {
+    case climate::CLIMATE_ACTION_OFF: return "\"off\"";
+    case climate::CLIMATE_ACTION_COOLING: return "\"cooling\"";
+    case climate::CLIMATE_ACTION_HEATING: return "\"heating\"";
+    case climate::CLIMATE_ACTION_DRYING: return "\"drying\"";
+    case climate::CLIMATE_ACTION_IDLE: return "\"idle\"";
+    default: return "\"idle\"";
+  }
 }
 
 std::string EcodanDashboard::climate_current_str_(climate::Climate *c) {

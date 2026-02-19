@@ -43,12 +43,20 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   void set_compressor_starts(sensor::Sensor *s)               { compressor_starts_ = s; }
   void set_runtime(sensor::Sensor *s)                         { runtime_ = s; }
   void set_wifi_signal_db(sensor::Sensor *s)                  { wifi_signal_db_ = s; }
-  // DHW sensors
+
   void set_dhw_temp(sensor::Sensor *s)                        { dhw_temp_ = s; }
   void set_dhw_flow_temp_target(sensor::Sensor *s)            { dhw_flow_temp_target_ = s; }
   void set_dhw_flow_temp_drop(sensor::Sensor *s)              { dhw_flow_temp_drop_ = s; }
   void set_dhw_consumed(sensor::Sensor *s)                    { dhw_consumed_ = s; }
   void set_dhw_delivered(sensor::Sensor *s)                   { dhw_delivered_ = s; }
+  void set_dhw_cop(sensor::Sensor *s)                         { dhw_cop_ = s; }
+
+  void set_heating_consumed(sensor::Sensor *s)                { heating_consumed_ = s; }
+  void set_heating_produced(sensor::Sensor *s)                { heating_produced_ = s; }
+  void set_heating_cop(sensor::Sensor *s)                     { heating_cop_ = s; }
+  void set_cooling_consumed(sensor::Sensor *s)                { cooling_consumed_ = s; }
+  void set_cooling_produced(sensor::Sensor *s)                { cooling_produced_ = s; }
+  void set_cooling_cop(sensor::Sensor *s)                     { cooling_cop_ = s; }
 
   // Flow Temp Targets
   void set_z1_flow_temp_target(sensor::Sensor *s)             { z1_flow_temp_target_ = s; }
@@ -75,6 +83,7 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   void set_sw_defrost_mit(switch_::Switch *s)                 { sw_defrost_mit_ = s; }
   void set_sw_smart_boost(switch_::Switch *s)                 { sw_smart_boost_ = s; }
   void set_sw_force_dhw(switch_::Switch *s)                   { sw_force_dhw_ = s; } 
+  void set_pred_sc_switch(switch_::Switch *s)                 { pred_sc_switch_ = s; }
 
   // Selects
   void set_sel_heating_system_type(select::Select *s)         { sel_heating_system_type_ = s; }
@@ -89,13 +98,21 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   void set_num_aa_setpoint_bias(number::Number *n)            { num_aa_setpoint_bias_ = n; }
   void set_num_max_flow_temp(number::Number *n)               { num_max_flow_temp_ = n; }
   void set_num_min_flow_temp(number::Number *n)               { num_min_flow_temp_ = n; }
+  void set_num_max_flow_temp_z2(number::Number *n)            { num_max_flow_temp_z2_ = n; }
+  void set_num_min_flow_temp_z2(number::Number *n)            { num_min_flow_temp_z2_ = n; }
   void set_num_hysteresis_z1(number::Number *n)               { num_hysteresis_z1_ = n; }
   void set_num_hysteresis_z2(number::Number *n)               { num_hysteresis_z2_ = n; }
+  void set_pred_sc_time(number::Number *n)                    { pred_sc_time_ = n; }
+  void set_pred_sc_delta(number::Number *n)                   { pred_sc_delta_ = n; }
 
   // Climate
   void set_dhw_climate(climate::Climate *c)                   { dhw_climate_ = c; }
   void set_virtual_climate_z1(climate::Climate *c)            { virtual_climate_z1_ = c; }
   void set_virtual_climate_z2(climate::Climate *c)            { virtual_climate_z2_ = c; }
+  void set_heatpump_climate_z1(climate::Climate *c)           { heatpump_climate_z1_ = c; }
+  void set_heatpump_climate_z2(climate::Climate *c)           { heatpump_climate_z2_ = c; }
+  void set_flow_climate_z1(climate::Climate *c)               { flow_climate_z1_ = c; }
+  void set_flow_climate_z2(climate::Climate *c)               { flow_climate_z2_ = c; }
 
   // AsyncWebHandler
   bool canHandle(AsyncWebServerRequest *request) const override;
@@ -112,6 +129,7 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   static std::string sensor_str_(sensor::Sensor *s);
   static std::string climate_current_str_(climate::Climate *c);
   static std::string climate_target_str_(climate::Climate *c);
+  static std::string climate_action_str_(climate::Climate *c);
   static std::string number_str_(number::Number *n);
   static const char *bin_str_(binary_sensor::BinarySensor *b);
   static bool bin_state_(binary_sensor::BinarySensor *b);
@@ -146,6 +164,14 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   sensor::Sensor *dhw_flow_temp_drop_{nullptr};
   sensor::Sensor *dhw_consumed_{nullptr};
   sensor::Sensor *dhw_delivered_{nullptr};
+  sensor::Sensor *dhw_cop_{nullptr};
+  sensor::Sensor *heating_consumed_{nullptr};
+  sensor::Sensor *heating_produced_{nullptr};
+  sensor::Sensor *heating_cop_{nullptr};
+  sensor::Sensor *cooling_consumed_{nullptr};
+  sensor::Sensor *cooling_produced_{nullptr};
+  sensor::Sensor *cooling_cop_{nullptr};
+
   sensor::Sensor *z1_flow_temp_target_{nullptr};
   sensor::Sensor *z2_flow_temp_target_{nullptr};
 
@@ -176,6 +202,7 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   switch_::Switch *sw_defrost_mit_{nullptr};
   switch_::Switch *sw_smart_boost_{nullptr};
   switch_::Switch *sw_force_dhw_{nullptr}; 
+  switch_::Switch *pred_sc_switch_{nullptr};
 
   // Selects
   select::Select *sel_heating_system_type_{nullptr};
@@ -190,13 +217,21 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   number::Number *num_aa_setpoint_bias_{nullptr};
   number::Number *num_max_flow_temp_{nullptr};
   number::Number *num_min_flow_temp_{nullptr};
+  number::Number *num_max_flow_temp_z2_{nullptr};
+  number::Number *num_min_flow_temp_z2_{nullptr};
   number::Number *num_hysteresis_z1_{nullptr};
   number::Number *num_hysteresis_z2_{nullptr};
+  number::Number *pred_sc_time_{nullptr};
+  number::Number *pred_sc_delta_{nullptr};
 
   // Climate
   climate::Climate *dhw_climate_{nullptr};
   climate::Climate *virtual_climate_z1_{nullptr};
   climate::Climate *virtual_climate_z2_{nullptr};
+  climate::Climate *heatpump_climate_z1_{nullptr};
+  climate::Climate *heatpump_climate_z2_{nullptr};
+  climate::Climate *flow_climate_z1_{nullptr};
+  climate::Climate *flow_climate_z2_{nullptr};
 };
 
 }  // namespace asgard_dashboard
