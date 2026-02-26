@@ -11,14 +11,14 @@ namespace esphome
 
         bool Optimizer::get_predictive_boost_state()
         {
-            return (!isnan(this->pcp_old_z1_setpoint_) && this->pcp_old_z1_setpoint_ > 0.0f) 
-                || (!isnan(this->pcp_old_z2_setpoint_) && this->pcp_old_z2_setpoint_ > 0.0f);
+            return (!isnan(this->pcp_adjustment_z1_) && this->pcp_adjustment_z1_ > 0.0f) 
+                || (!isnan(this->pcp_adjustment_z2_) && this->pcp_adjustment_z2_ > 0.0f);
         }
 
         void Optimizer::reset_predictive_boost()
         {
-            this->pcp_old_z1_setpoint_ = NAN;
-            this->pcp_old_z2_setpoint_ = NAN;
+            this->pcp_adjustment_z1_ = NAN;
+            this->pcp_adjustment_z2_ = NAN;
             this->update_boost_sensor();
         }
 

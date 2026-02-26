@@ -8,7 +8,7 @@ AUTO_LOAD = ["web_server_base"]
 
 CONF_WEB_SERVER_BASE_ID = "web_server_base_id"
 
-from esphome.components import sensor, binary_sensor, text_sensor, climate, number, switch, select
+from esphome.components import sensor, binary_sensor, text_sensor, climate, number, switch, select, globals
 
 asgard_dashboard_ns = cg.esphome_ns.namespace("asgard_dashboard")
 EcodanDashboard = asgard_dashboard_ns.class_("EcodanDashboard", cg.Component)
@@ -45,6 +45,8 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional("z1_flow_temp_target_id"):             cv.use_id(sensor.Sensor),
         cv.Optional("z2_flow_temp_target_id"):             cv.use_id(sensor.Sensor),
 
+        cv.Optional("operation_mode_id"):                  cv.use_id(sensor.Sensor),
+
         cv.Optional("status_compressor_id"):               cv.use_id(binary_sensor.BinarySensor),
         cv.Optional("status_booster_id"):                  cv.use_id(binary_sensor.BinarySensor),
         cv.Optional("status_defrost_id"):                  cv.use_id(binary_sensor.BinarySensor),
@@ -53,7 +55,6 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional("status_in6_request_id"):              cv.use_id(binary_sensor.BinarySensor),
         cv.Optional("zone2_enabled_id"):                   cv.use_id(binary_sensor.BinarySensor),
 
-        cv.Optional("status_operation_id"):                cv.use_id(text_sensor.TextSensor),
         cv.Optional("heating_system_type_id"):             cv.use_id(text_sensor.TextSensor),
         cv.Optional("room_temp_source_z1_id"):             cv.use_id(text_sensor.TextSensor),
         cv.Optional("room_temp_source_z2_id"):             cv.use_id(text_sensor.TextSensor),
@@ -91,6 +92,9 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional("predictive_short_cycle_control_enabled_id"):      cv.use_id(switch.Switch),
         cv.Optional("predictive_short_cycle_high_delta_time_window_id"): cv.use_id(number.Number),
         cv.Optional("predictive_short_cycle_high_delta_threshold_id"):   cv.use_id(number.Number),
+
+        cv.Optional("ui_use_room_z1_id"): cv.use_id(globals.GlobalsComponent),
+        cv.Optional("ui_use_room_z2_id"): cv.use_id(globals.GlobalsComponent),
 
     }
 ).extend(cv.COMPONENT_SCHEMA)
@@ -143,7 +147,7 @@ async def to_code(config):
         ("status_in1_request_id",             "set_status_in1_request"),
         ("status_in6_request_id",             "set_status_in6_request"),
         ("zone2_enabled_id",                  "set_status_zone2_enabled"),
-        ("status_operation_id",               "set_status_operation"),
+        ("operation_mode_id",                 "set_operation_mode"),
         ("heating_system_type_id",            "set_heating_system_type"),
         ("room_temp_source_z1_id",            "set_room_temp_source_z1"),
         ("room_temp_source_z2_id",            "set_room_temp_source_z2"),
@@ -175,6 +179,8 @@ async def to_code(config):
         ("predictive_short_cycle_control_enabled_id",    "set_pred_sc_switch"),
         ("predictive_short_cycle_high_delta_time_window_id", "set_pred_sc_time"),
         ("predictive_short_cycle_high_delta_threshold_id",   "set_pred_sc_delta"),
+        ("ui_use_room_z1_id", "set_ui_use_room_z1"),
+        ("ui_use_room_z2_id", "set_ui_use_room_z2"),
     ]
 
     for conf_key, setter in pairs:

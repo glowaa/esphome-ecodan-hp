@@ -11,6 +11,8 @@
 #include "esphome/components/number/number.h"
 #include "esphome/components/switch/switch.h"
 #include "esphome/components/select/select.h"
+#include "esphome/components/globals/globals_component.h"
+
 
 namespace esphome {
 namespace asgard_dashboard {
@@ -20,6 +22,103 @@ struct DashboardAction {
   std::string s_value;
   float f_value;
   bool is_string;
+};
+
+// 24 bytes per record
+struct HistoryRecord {
+  uint32_t timestamp;
+  int16_t hp_feed;
+  int16_t hp_return;
+  int16_t z1_sp;
+  int16_t z2_sp;
+  int16_t z1_curr;
+  int16_t z2_curr;
+  int16_t z1_flow;
+  int16_t z2_flow;
+  int16_t freq;
+  uint16_t flags; // Bit 0-5 = booleans, Bit 6-9 = mode
+};
+
+struct DashboardSnapshot {
+  // Boolean sensors
+  bool ui_use_room_z1{false};
+  bool ui_use_room_z2{false};
+  bool status_compressor{false};
+  bool status_booster{false};
+  bool status_defrost{false};
+  bool status_water_pump{false};
+  bool status_in1_request{false};
+  bool status_in6_request{false};
+  bool status_zone2_enabled{false};
+  bool pred_sc_switch{false};
+  bool sw_auto_adaptive{false};
+  bool sw_defrost_mit{false};
+  bool sw_smart_boost{false};
+  bool sw_force_dhw{false};
+
+  // Float sensors
+  float hp_feed_temp{NAN};
+  float hp_return_temp{NAN};
+  float outside_temp{NAN};
+  float compressor_frequency{NAN};
+  float flow_rate{NAN};
+  float computed_output_power{NAN};
+  float daily_computed_output_power{NAN};
+  float daily_total_energy_consumption{NAN};
+  float compressor_starts{NAN};
+  float runtime{NAN};
+  float wifi_signal_db{NAN};
+
+  float dhw_temp{NAN};
+  float dhw_flow_temp_target{NAN};
+  float dhw_flow_temp_drop{NAN};
+  float dhw_consumed{NAN};
+  float dhw_delivered{NAN};
+  float dhw_cop{NAN};
+
+  float heating_consumed{NAN};
+  float heating_produced{NAN};
+  float heating_cop{NAN};
+  float cooling_consumed{NAN};
+  float cooling_produced{NAN};
+  float cooling_cop{NAN};
+
+  float z1_flow_temp_target{NAN};
+  float z2_flow_temp_target{NAN};
+
+  // Number sensors with limits
+  struct NumData { float val{NAN}; float min{NAN}; float max{NAN}; float step{NAN}; };
+  NumData num_aa_setpoint_bias;
+  NumData num_max_flow_temp;
+  NumData num_min_flow_temp;
+  NumData num_max_flow_temp_z2;
+  NumData num_min_flow_temp_z2;
+  NumData num_hysteresis_z1;
+  NumData num_hysteresis_z2;
+  NumData pred_sc_time;
+  NumData pred_sc_delta;
+
+  // Climate data
+  struct ClimData { float curr{NAN}; float tar{NAN}; int action{-1}; int mode{-1}; };
+  ClimData virt_z1;
+  ClimData virt_z2;
+  ClimData room_z1;
+  ClimData room_z2;
+  ClimData flow_z1;
+  ClimData flow_z2;
+
+  // Selects & modes
+  float operation_mode{NAN};
+  int sel_heating_system_type{-1};
+  int sel_room_temp_source_z1{-1};
+  int sel_room_temp_source_z2{-1};
+  int sel_operating_mode_z1{-1};
+  int sel_operating_mode_z2{-1};
+  int sel_temp_source_z1{-1};
+  int sel_temp_source_z2{-1};
+
+  // Safe fixed-size character arrays for text sensors
+  char version[32]{0};
 };
 
 class EcodanDashboard : public Component, public AsyncWebHandler {
@@ -57,6 +156,7 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   void set_cooling_consumed(sensor::Sensor *s)                { cooling_consumed_ = s; }
   void set_cooling_produced(sensor::Sensor *s)                { cooling_produced_ = s; }
   void set_cooling_cop(sensor::Sensor *s)                     { cooling_cop_ = s; }
+  void set_operation_mode(sensor::Sensor *s)                  { operation_mode_ = s; }
 
   // Flow Temp Targets
   void set_z1_flow_temp_target(sensor::Sensor *s)             { z1_flow_temp_target_ = s; }
@@ -72,7 +172,6 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   void set_status_zone2_enabled(binary_sensor::BinarySensor *b) { status_zone2_enabled_ = b; }
 
   // Text sensors
-  void set_status_operation(text_sensor::TextSensor *t)       { status_operation_ = t; }
   void set_heating_system_type(text_sensor::TextSensor *t)    { heating_system_type_ = t; }
   void set_room_temp_source_z1(text_sensor::TextSensor *t)    { room_temp_source_z1_ = t; }
   void set_room_temp_source_z2(text_sensor::TextSensor *t)    { room_temp_source_z2_ = t; }
@@ -114,6 +213,10 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   void set_flow_climate_z1(climate::Climate *c)               { flow_climate_z1_ = c; }
   void set_flow_climate_z2(climate::Climate *c)               { flow_climate_z2_ = c; }
 
+  // Globals
+  void set_ui_use_room_z1(esphome::globals::RestoringGlobalsComponent<bool> *g) { ui_use_room_z1_ = g; }
+  void set_ui_use_room_z2(esphome::globals::RestoringGlobalsComponent<bool> *g) { ui_use_room_z2_ = g; }
+
   // AsyncWebHandler
   bool canHandle(AsyncWebServerRequest *request) const override;
   void handleRequest(AsyncWebServerRequest *request) override;
@@ -125,22 +228,6 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   void handle_set_(AsyncWebServerRequest *request);
   void dispatch_set_(const std::string &key, const std::string &sval, float fval, bool is_string);
 
-  // JSON helpers
-  static std::string sensor_str_(sensor::Sensor *s);
-  static std::string climate_current_str_(climate::Climate *c);
-  static std::string climate_target_str_(climate::Climate *c);
-  static std::string climate_action_str_(climate::Climate *c);
-  static std::string number_str_(number::Number *n);
-  static const char *bin_str_(binary_sensor::BinarySensor *b);
-  static bool bin_state_(binary_sensor::BinarySensor *b);
-  static std::string text_val_(text_sensor::TextSensor *t);
-  
-  static std::string select_idx_(select::Select *s); 
-  static std::string select_str_(select::Select *s);
-
-  static std::string sw_str_(switch_::Switch *sw);
-  
-  static std::string number_traits_(number::Number *n);
   std::vector<DashboardAction> action_queue_;
   std::mutex action_lock_;
 
@@ -181,6 +268,8 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   sensor::Sensor *thermostat_hysteresis_z1_{nullptr};
   sensor::Sensor *thermostat_hysteresis_z2_{nullptr};
 
+  sensor::Sensor *operation_mode_{nullptr};
+
   // Binary sensors
   binary_sensor::BinarySensor *status_compressor_{nullptr};
   binary_sensor::BinarySensor *status_booster_{nullptr};
@@ -191,12 +280,11 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   binary_sensor::BinarySensor *status_zone2_enabled_{nullptr};
 
   // Text sensors
-  text_sensor::TextSensor *status_operation_{nullptr};
   text_sensor::TextSensor *heating_system_type_{nullptr};
   text_sensor::TextSensor *room_temp_source_z1_{nullptr};
   text_sensor::TextSensor *room_temp_source_z2_{nullptr};
   text_sensor::TextSensor *version_{nullptr};
-
+  
   // Switches
   switch_::Switch *sw_auto_adaptive_{nullptr};
   switch_::Switch *sw_defrost_mit_{nullptr};
@@ -232,6 +320,29 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   climate::Climate *heatpump_climate_z2_{nullptr};
   climate::Climate *flow_climate_z1_{nullptr};
   climate::Climate *flow_climate_z2_{nullptr};
+
+  esphome::globals::RestoringGlobalsComponent<bool> *ui_use_room_z1_{nullptr};
+  esphome::globals::RestoringGlobalsComponent<bool> *ui_use_room_z2_{nullptr};
+
+private:
+  static const size_t MAX_HISTORY = 1440; // 24h, 1min interval
+  HistoryRecord history_buffer_[MAX_HISTORY];
+  size_t history_head_{0};
+  size_t history_count_{0};
+  uint32_t last_history_time_{0};
+
+  // snapshot data to avoid concurrency issues
+  DashboardSnapshot current_snapshot_;
+  std::mutex snapshot_mutex_;
+  uint32_t last_snapshot_time_{0};
+  void update_snapshot_();
+
+  void record_history_();
+  void handle_history_request_(AsyncWebServerRequest *request);
+  void handle_js_(AsyncWebServerRequest *request);
+  void send_chunked_(AsyncWebServerRequest *request, const char *content_type, const uint8_t *data, size_t length, const char *cache_control);
+  static int16_t pack_temp_(float val);
+  static bool bin_state_(binary_sensor::BinarySensor *b);
 };
 
 }  // namespace asgard_dashboard
