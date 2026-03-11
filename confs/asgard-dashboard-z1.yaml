@@ -9,6 +9,7 @@ globals:
     initial_value: 'false'
 
 asgard_dashboard:
+  id: asgard_dashboard_id
   version_id:                        current_fw_version
   ui_use_room_z1_id:                 ui_use_room_z1
   # ── Header badge sensors 
@@ -81,3 +82,23 @@ asgard_dashboard:
   predictive_short_cycle_control_enabled_id: predictive_short_cycle_control_enabled 
   predictive_short_cycle_high_delta_time_window_id: predictive_short_cycle_high_delta_time_window
   predictive_short_cycle_high_delta_threshold_id: predictive_short_cycle_high_delta_threshold
+
+# ── Solver & Physics
+  sw_use_solver_id:                  sw_use_solver
+  bin_solver_connected_id:           bin_solver_connected
+  txt_solver_ip_id:                  txt_solver_ip
+  num_raw_heat_produced_id:          num_raw_heat_produced
+  num_raw_elec_consumed_id:          num_raw_elec_consumed
+  num_raw_runtime_hours_id:          num_raw_runtime_hours
+  num_raw_avg_outside_temp_id:       num_raw_avg_outside_temp
+  num_raw_avg_room_temp_id:          num_raw_avg_room_temp
+  num_raw_delta_room_temp_id:        num_raw_delta_room_temp
+  num_raw_max_output_id:             num_raw_max_output
+  num_battery_soc_kwh_id:            num_battery_soc_kwh
+  num_battery_max_discharge_kw_id:   num_battery_max_discharge_kw
+  solver_kwh_meter_feedback_source_id: solver_kwh_meter_feedback_source
+  solver_kwh_meter_feedback_id: solver_kwh_meter_feedback
+
+# ── Cooling Z1
+  num_cooling_smart_start_z1_id:     cooling_smart_start_temp
+  num_min_cooling_flow_z1_id:        minimum_cooling_flow_temp

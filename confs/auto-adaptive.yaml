@@ -7,31 +7,6 @@ globals:
     restore_value: yes
     initial_value: '0'
 
-  - id: g_learned_heat_loss
-    type: float
-    restore_value: yes
-    initial_value: '0.2'   # Default House Factor (kW/K)
-
-  - id: g_learned_base_cop
-    type: float
-    restore_value: yes
-    initial_value: '5'   # Default COP at 7C
-
-  - id: g_learned_thermal_output
-    type: float
-    restore_value: yes
-    initial_value: '6.0'   # Default Output (kW)
-
-  - id: g_learned_elec_power
-    type: float
-    restore_value: yes
-    initial_value: '1.5'   # Default Input Power (kW)
-
-  - id: daily_compressor_runtime_minutes
-    type: float
-    restore_value: yes
-    initial_value: '0.0'
-
 substitutions:
   update_interval_minutes: "5min"
   asgard_prefix: "//"
@@ -43,10 +18,12 @@ esphome:
         - lambda: |-
             using namespace esphome::optimizer;
             OptimizerState state = {
-                .learned_heat_loss_global = id(g_learned_heat_loss),
-                .learned_base_cop_global = id(g_learned_base_cop),
-                .learned_thermal_output_global = id(g_learned_thermal_output),
-                .learned_elec_power_global = id(g_learned_elec_power),
+                .num_raw_heat_produced = id(num_raw_heat_produced),
+                .num_raw_elec_consumed = id(num_raw_elec_consumed),
+                .num_raw_runtime_hours = id(num_raw_runtime_hours),
+                .num_raw_avg_outside_temp = id(num_raw_avg_outside_temp),
+                .num_raw_avg_room_temp = id(num_raw_avg_room_temp),
+                .num_raw_delta_room_temp = id(num_raw_delta_room_temp),
                 .lockout_expiration_timestamp = id(lockout_expiration_timestamp)
             };
 
@@ -56,6 +33,7 @@ esphome:
             state.predictive_short_cycle_control_enabled = id(predictive_short_cycle_control_enabled);
             state.defrost_risk_handling_enabled = id(defrost_risk_handling_enabled);
             state.smart_boost_enabled = id(smart_boost_enabled);
+            state.sw_use_solver = id(sw_use_solver);
 
             state.status_short_cycle_lockout = id(status_short_cycle_lockout);
             state.status_predictive_boost_active = id(status_predictive_boost_active);
@@ -66,6 +44,8 @@ esphome:
             ${z2_cpp_prefix} state.z2_feed_temp = id(z2_feed_temp);
             ${asgard_prefix} state.asgard_vt_z1 = id(virtual_climate_z1);
             ${asgard_prefix} ${z2_cpp_prefix} state.asgard_vt_z2 = id(virtual_climate_z2);
+            ${asgard_prefix} state.demand_switch_z1 = id(demand_switch_z1);
+            ${asgard_prefix} ${z2_cpp_prefix} state.demand_switch_z2 = id(demand_switch_z2);
 
             state.heating_system_type = id(heating_system_type);
             state.temperature_feedback_source_z1 = id(temperature_feedback_source_z1);
@@ -325,6 +305,13 @@ switch:
     restore_mode: RESTORE_DEFAULT_OFF
     optimistic: true
 
+  - platform: template
+    id: sw_use_solver
+    name: ${sw_use_solver}
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    icon: "mdi:brain"
+
 binary_sensor:
   - platform: template
     id: status_predictive_boost_active
@@ -335,6 +322,18 @@ binary_sensor:
     status_short_cycle_lockout:
       id: status_short_cycle_lockout
       name: ${status_short_cycle_lockout}
+  - platform: template
+    id: bin_solver_connected
+    name: ${bin_solver_connected}
+
+text_sensor:
+  - platform: template
+    id: txt_solver_ip
+    name: "Solver IP Address"
+    on_value:
+      - logger.log:
+          format: "Solver IP changed to: %s"
+          args: [ "x.c_str()" ]
 
 button:
   - platform: template
@@ -366,12 +365,51 @@ button:
   #     - lambda: |-
   #         id(status_compressor).publish_state(false);
 interval:
-  - interval: ${update_interval_minutes}
-    then:
-      - lambda: id(optimizer_ptr)->run_auto_adaptive_loop();
   - interval: 30s
     then:
       - lambda: id(optimizer_ptr)->check_lockout_expiration();
       - lambda: id(optimizer_ptr)->predictive_short_cycle_check();
       - lambda: id(optimizer_ptr)->update_boost_sensor();
       - lambda: id(optimizer_ptr)->update_heat_model();
+  - interval: ${update_interval_minutes}
+    then:
+      - lambda: id(optimizer_ptr)->run_auto_adaptive_loop();
+  - interval: 60s
+    then:
+      - if:
+          condition:
+            lambda: |-
+              return id(sw_use_solver).state && 
+                     (id(txt_solver_ip).state == "" || 
+                     id(txt_solver_ip).state == "0.0.0.0" || 
+                     id(txt_solver_ip).state == "odin.local");
+          then:
+            - lambda: |-
+                ESP_LOGD("asgard", "Starting background task for mDNS discovery...");
+                
+                xTaskCreate([](void *pvParameters) {
+                  struct hostent *he = gethostbyname("odin.local");
+                  
+                  if (he != nullptr && he->h_addr_list[0] != nullptr) {
+                    struct in_addr **addr_list = (struct in_addr **)he->h_addr_list;
+                    std::string ip = inet_ntoa(*addr_list[0]);
+                    
+                    esphome::App.scheduler.set_timeout(nullptr, "mdns_ok", 0, [ip]() {
+                      ESP_LOGI("asgard", "Success! Solver found at IP: %s", ip.c_str());
+                      id(txt_solver_ip).publish_state(ip);
+                      if (id(bin_solver_connected).state != true) {
+                        id(bin_solver_connected).publish_state(true);
+                      }
+                    });
+                  } else {
+                    esphome::App.scheduler.set_timeout(nullptr, "mdns_fail", 0, []() {
+                      ESP_LOGD("asgard", "mDNS lookup failed. Retrying in 60s...");
+                      if (id(bin_solver_connected).state != false) {
+                        id(bin_solver_connected).publish_state(false);
+                      }
+                    });
+                  }
+                  
+                  vTaskDelete(NULL);
+                  
+                }, "mdns_task", 4096, NULL, 1, NULL);

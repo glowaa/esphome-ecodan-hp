@@ -1,0 +1,108 @@
+http_request:
+  verify_ssl: false
+  timeout: 5s
+
+script:
+  - id: fetch_odin_optimization
+    then:
+      - if:
+          condition:
+            - switch.is_on: sw_use_solver
+            - lambda: 'return id(txt_solver_ip).state != "0.0.0.0" && id(txt_solver_ip).state != "";'
+          then:
+            - http_request.post:
+                url: !lambda 'return "http://" + id(txt_solver_ip).state + "/api/solve";'
+                request_headers:
+                  Content-Type: application/json
+                  Connection: close
+                capture_response: true
+                max_response_buffer_size: 4096
+                
+                body: !lambda |-
+                  char payload[600];
+                  
+                  // Get the active index from your specific select component
+                  int heating_idx = id(heating_system_type).active_index().value_or(0);
+                  const char* profile_str = "ufh"; // Default fallback
+                  
+                  if (heating_idx == 0 || heating_idx == 1) {
+                      profile_str = "ufh";
+                  } else if (heating_idx == 2 || heating_idx == 3) {
+                      profile_str = "hybrid";
+                  } else if (heating_idx == 4 || heating_idx == 5) {
+                      profile_str = "radiators";
+                  }
+
+                  snprintf(payload, sizeof(payload),
+                      "{\"params\":{"
+                      "\"heating_profile\":\"%s\","
+                      "\"heat_produced\":%.2f,"
+                      "\"elec_consumed\":%.2f,"
+                      "\"runtime_hours\":%.2f,"
+                      "\"avg_outside_temp\":%.2f,"
+                      "\"avg_room_temp\":%.2f,"
+                      "\"delta_room_temp\":%.2f,"
+                      "\"max_output\":%.2f,"
+                      "\"current_hour\":%d,"
+                      "\"current_room_temp\":%.2f,"
+                      "\"battery_soc_kwh\":%.2f,"
+                      "\"battery_max_discharge_kw\":%.2f"
+                      "}}",
+                      profile_str,
+                      id(num_raw_heat_produced).state,
+                      id(num_raw_elec_consumed).state,
+                      id(num_raw_runtime_hours).state,
+                      id(num_raw_avg_outside_temp).state,
+                      id(num_raw_avg_room_temp).state,
+                      id(num_raw_delta_room_temp).state,
+                      id(num_raw_max_output).state,
+                      id(optimizer_ptr)->get_current_ecodan_hour(),
+                      id(virtual_climate_z1).current_temperature,
+                      id(num_battery_soc_kwh).state,
+                      id(num_battery_max_discharge_kw).state
+                  );
+                  return std::string(payload);
+                
+                on_response:
+                  then:
+                    - lambda: |-
+                        if (response->status_code == 200) {
+                          esphome::json::parse_json(body, [](JsonObject root) {
+                            if (root["success"].as<bool>()) {
+                              std::vector<float> sched, nrg, exp_t, cost, cost_tax, batt;
+                              
+                              // Extract arrays from JSON
+                              JsonArray j_s = root["schedule"];
+                              JsonArray j_e = root["energy_consumption"];
+                              JsonArray j_t = root["expected_begin_temp"];
+                              JsonArray j_c = root["expected_cost"];
+                              JsonArray j_ct = root["expected_cost_with_tax"];
+                              JsonArray j_b = root["battery_discharge"];
+                              
+                              for(int i = 0; i < 24; i++) {
+                                sched.push_back(j_s[i]);
+                                nrg.push_back(j_e[i]);
+                                exp_t.push_back(j_t[i]);
+                                cost.push_back(j_c[i]);
+                                cost_tax.push_back(j_ct[i]);
+                                batt.push_back(j_b ? j_b[i].as<float>() : 0.0f);
+                              }
+
+                              int cur_hr  = id(optimizer_ptr)->get_current_ecodan_hour();
+                              int cur_day = id(optimizer_ptr)->get_current_ecodan_day();
+                              // These calls now automatically handle the "Past vs Future" merge
+                              id(optimizer_ptr)->store_odin_data(cur_hr, sched, nrg);
+                              id(asgard_dashboard_id)->store_odin_data(cur_hr, cur_day, sched, nrg, exp_t, cost, cost_tax, batt);
+                            }
+                            return true;
+                          });
+                        }
+interval:
+  - interval: 60s
+    then:
+      - lambda: |-
+          // The C++ stats loop will raise this flag every time the hour changes
+          if (id(optimizer_ptr)->check_and_clear_odin_fetch_request()) {
+            ESP_LOGI("ODIN", "Hour transition detected by Ecodan clock. Fetching hourly Model Predictive Control (MPC) optimization.");
+            id(fetch_odin_optimization)->execute();
+          }
