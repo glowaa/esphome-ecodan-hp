@@ -20,7 +20,6 @@ script:
                 
                 body: !lambda |-
                   char payload[800];
-                  
                   // Get the active index from your specific select component
                   int heating_idx = id(heating_system_type).active_index().value_or(0);
                   const char* profile_str = "ufh"; // Default fallback
@@ -32,7 +31,6 @@ script:
                   } else if (heating_idx == 4 || heating_idx == 5) {
                       profile_str = "radiators";
                   }
-
                   float solar_factor = id(num_raw_solar_factor).state;
                   if (std::isnan(solar_factor) || solar_factor <= 0.001f) {
                       solar_factor = 0.015f; // default
@@ -55,6 +53,7 @@ script:
                       "\"avg_room_temp\":%.2f,"
                       "\"delta_room_temp\":%.2f,"
                       "\"max_output\":%.2f,"
+                      "\"min_output\":%.2f,"
                       "\"hl_tm_product\":%.4f,"
                       "\"passive_solar_gain_factor\":%.4f,"
                       "\"current_hour\":%d,"
@@ -74,6 +73,7 @@ script:
                       id(num_raw_avg_room_temp).state,
                       id(num_raw_delta_room_temp).state,
                       id(num_raw_max_output).state,
+                      id(num_raw_min_output).state,
                       id(num_raw_hl_tm_product).state,
                       solar_factor,
                       _cur_hour,
@@ -157,6 +157,11 @@ script:
 
                               id(asgard_dashboard_id)->store_odin_data(
                                 cur_hr, cur_day, exp_end_t, nrg, prod, exp_t, cost, cost_tax, batt, sb, smn, smx, wth, sol, prc, op_mode, stats);
+                            } else {
+                              ESP_LOGE("asgard_dashboard", "Solver failed to find a valid solution path!");
+                              if (root["error"].is<const char*>()) {
+                                  ESP_LOGE("ODIN_API", "Reason: %s", root["error"].as<const char*>());
+                              }
                             }
                             return true;
                           });
