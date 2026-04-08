@@ -1,8 +1,10 @@
 #pragma once
-#include <vector> 
+#include <vector>
+#include <atomic>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "freertos/task.h"
 #include "esphome/core/component.h"
 #include "esphome/components/web_server_base/web_server_base.h"
 #include "esphome/components/sensor/sensor.h"
@@ -39,6 +41,9 @@ struct HistoryRecord {
   uint16_t flags; // Bit 0-5 = booleans, Bit 6-9 = mode
   int16_t cons;
   int16_t prod;
+  int16_t outside;
+  int16_t liquid_pipe;
+  int16_t condensing;
 };
 
 struct DashboardSnapshot {
@@ -62,6 +67,8 @@ struct DashboardSnapshot {
   float hp_feed_temp{NAN};
   float hp_return_temp{NAN};
   float outside_temp{NAN};
+  float liquid_pipe_temp{NAN};
+  float condensing_temp{NAN};
   float compressor_frequency{NAN};
   float flow_rate{NAN};
   float computed_output_power{NAN};
@@ -137,8 +144,6 @@ struct DashboardSnapshot {
   NumData num_raw_avg_outside_temp;
   NumData num_raw_avg_room_temp;
   NumData num_raw_delta_room_temp;
-  NumData num_raw_max_output;
-  NumData num_raw_min_output;
   NumData num_raw_hl_tm_product;
   NumData num_raw_solar_factor;
 
@@ -163,6 +168,8 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   void set_hp_feed_temp(sensor::Sensor *s)                    { hp_feed_temp_ = s; }
   void set_hp_return_temp(sensor::Sensor *s)                  { hp_return_temp_ = s; }
   void set_outside_temp(sensor::Sensor *s)                    { outside_temp_ = s; }
+  void set_liquid_pipe_temp(sensor::Sensor *s)               { liquid_pipe_temp_ = s; }
+  void set_condensing_temp(sensor::Sensor *s)                { condensing_temp_ = s; }
   void set_compressor_frequency(sensor::Sensor *s)            { compressor_frequency_ = s; }
   void set_flow_rate(sensor::Sensor *s)                       { flow_rate_ = s; }
   void set_computed_output_power(sensor::Sensor *s)           { computed_output_power_ = s; }
@@ -262,8 +269,6 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   void set_num_raw_avg_outside_temp(number::Number *n) { num_raw_avg_outside_temp_ = n; }
   void set_num_raw_avg_room_temp(number::Number *n) { num_raw_avg_room_temp_ = n; }
   void set_num_raw_delta_room_temp(number::Number *n) { num_raw_delta_room_temp_ = n; }
-  void set_num_raw_max_output(number::Number *n) { num_raw_max_output_ = n; }
-  void set_num_raw_min_output(number::Number *n) { num_raw_min_output_ = n; }
   void set_num_raw_hl_tm_product(number::Number *n) { num_raw_hl_tm_product_ = n; }
   void set_num_raw_solar_factor(number::Number *n) { num_raw_solar_factor_ = n; }
 
@@ -280,7 +285,10 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
       uint32_t execution_ms{0};
       float heat_loss{0.0f}, base_cop{0.0f}, thermal_mass{0.0f};
       float exp_consumption{0.0f}, exp_production{0.0f}, exp_solar{0.0f}, exp_solar_total{0.0f};
-      float total_cost{0.0f}, total_cost_tax{0.0f};
+      float total_cost{0.0f};
+      float used_solar_kwp{0.0f};
+      float min_output{0.0f};
+      float max_output{0.0f};
   } last_run_stats_;
 
   // Called from YAML after each successful solver response
@@ -290,7 +298,6 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
                        const std::vector<float>& production,
                        const std::vector<float>& exp_temp,
                        const std::vector<float>& cost,
-                       const std::vector<float>& cost_tax,
                        const std::vector<float>& battery_discharge,
                        const std::vector<float>& sched_base,
                        const std::vector<float>& sched_min,
@@ -322,6 +329,8 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   sensor::Sensor *hp_feed_temp_{nullptr};
   sensor::Sensor *hp_return_temp_{nullptr};
   sensor::Sensor *outside_temp_{nullptr};
+  sensor::Sensor *liquid_pipe_temp_{nullptr};
+  sensor::Sensor *condensing_temp_{nullptr};
   sensor::Sensor *compressor_frequency_{nullptr};
   sensor::Sensor *flow_rate_{nullptr};
   sensor::Sensor *computed_output_power_{nullptr};
@@ -423,8 +432,6 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   number::Number *num_raw_avg_outside_temp_{nullptr};
   number::Number *num_raw_avg_room_temp_{nullptr};
   number::Number *num_raw_delta_room_temp_{nullptr};
-  number::Number *num_raw_max_output_{nullptr};
-  number::Number *num_raw_min_output_{nullptr};
   number::Number *num_raw_hl_tm_product_{nullptr};
   number::Number *num_raw_solar_factor_{nullptr};
 
@@ -454,7 +461,6 @@ private:
   std::vector<float> odin_production_;     // heat kWh produced per hour
   std::vector<float> odin_expected_temp_;
   std::vector<float> odin_cost_;
-  std::vector<float> odin_cost_tax_;
   std::vector<float> odin_battery_discharge_;
   std::vector<float> odin_actual_cons_;    // actual kWh consumed per hour (NVS persisted)
   std::vector<float> odin_actual_prod_;    // actual kWh produced per hour (NVS persisted)
@@ -471,9 +477,13 @@ private:
   int odin_stored_day_{-1};
   bool odin_nvs_dirty_{false};
   uint32_t odin_nvs_last_write_ms_{0};
+  std::atomic<bool> nvs_show_tab_cache_{false};  // cached copy of sw_show_solver_tab_->state, safe to read from NVS task
 
   void record_history_();
   void nvs_persist_odin_();
+  static void nvs_task_(void *arg);  // dedicated low-priority task for NVS flash writes
+  TaskHandle_t nvs_task_handle_{nullptr};
+  SemaphoreHandle_t nvs_trigger_{nullptr};  // binary semaphore to signal the NVS task
   void handle_history_request_(AsyncWebServerRequest *request);
   void handle_js_(AsyncWebServerRequest *request);
   void send_chunked_(AsyncWebServerRequest *request, const char *content_type, const uint8_t *data, size_t length, const char *cache_control);

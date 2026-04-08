@@ -27,6 +27,17 @@ void EcodanDashboard::setup() {
   // prevent premature nvs flushes
   this->odin_nvs_last_write_ms_ = millis();
 
+  // NVS writes run in a dedicated low-priority task to avoid blocking lwIP
+  this->nvs_trigger_ = xSemaphoreCreateBinary();
+  xTaskCreate(
+      EcodanDashboard::nvs_task_,
+      "nvs_persist",
+      4096,
+      this,
+      1,                           // priority 1 = lowest above idle, well below lwIP (18)
+      &this->nvs_task_handle_
+  );
+
   base_->init();
   base_->add_handler(this);
 }
@@ -45,13 +56,20 @@ void EcodanDashboard::loop() {
     update_snapshot_();
   }
 
-  // Flush ODIN arrays to NVS if dirty, max once per 10 minutes
+  // Signal the NVS task — never call nvs_persist_odin_() directly from loop()
+  // as flash writes block the CPU and cause lwIP TCP assert crashes.
   if (this->odin_nvs_dirty_) {
     const uint32_t NVS_FLUSH_INTERVAL_MS = 10 * 60 * 1000;
     if (this->odin_nvs_last_write_ms_ == 0 || (now - this->odin_nvs_last_write_ms_) >= NVS_FLUSH_INTERVAL_MS) {
-      this->nvs_persist_odin_();
       this->odin_nvs_dirty_ = false;
       this->odin_nvs_last_write_ms_ = now;
+      // Snapshot switch state here (loop task context) so nvs_persist_odin_()
+      // can read it safely from the NVS task without touching ESPHome objects.
+      this->nvs_show_tab_cache_.store(
+          this->sw_show_solver_tab_ != nullptr && this->sw_show_solver_tab_->state);
+      if (this->nvs_trigger_ != nullptr) {
+        xSemaphoreGive(this->nvs_trigger_);  // wake the NVS task
+      }
     }
   }
 
@@ -302,8 +320,6 @@ void EcodanDashboard::dispatch_set_(const std::string &key, const std::string &s
   if (key == "raw_avg_outside_temp") { doNumber(num_raw_avg_outside_temp_); return; }
   if (key == "raw_avg_room_temp") { doNumber(num_raw_avg_room_temp_); return; }
   if (key == "raw_delta_room_temp") { doNumber(num_raw_delta_room_temp_); return; }
-  if (key == "raw_max_output") { doNumber(num_raw_max_output_); return; }
-  if (key == "raw_min_output") { doNumber(num_raw_min_output_); return; }
   if (key == "raw_hl_tm_product") { doNumber(num_raw_hl_tm_product_); return; }
   if (key == "raw_solar_factor") { doNumber(num_raw_solar_factor_); return; }
   if (key == "battery_soc_kwh") { doNumber(num_battery_soc_kwh_); return; }
@@ -426,6 +442,8 @@ void EcodanDashboard::update_snapshot_() {
   current_snapshot_.hp_feed_temp = get_f(hp_feed_temp_);
   current_snapshot_.hp_return_temp = get_f(hp_return_temp_);
   current_snapshot_.outside_temp = get_f(outside_temp_);
+  current_snapshot_.liquid_pipe_temp = get_f(liquid_pipe_temp_);
+  current_snapshot_.condensing_temp = get_f(condensing_temp_);
   current_snapshot_.compressor_frequency = get_f(compressor_frequency_);
   current_snapshot_.flow_rate = get_f(flow_rate_);
   current_snapshot_.computed_output_power = get_f(computed_output_power_);
@@ -473,8 +491,6 @@ void EcodanDashboard::update_snapshot_() {
   get_n(num_raw_avg_outside_temp_, current_snapshot_.num_raw_avg_outside_temp);
   get_n(num_raw_avg_room_temp_, current_snapshot_.num_raw_avg_room_temp);
   get_n(num_raw_delta_room_temp_, current_snapshot_.num_raw_delta_room_temp);
-  get_n(num_raw_max_output_, current_snapshot_.num_raw_max_output);
-  get_n(num_raw_min_output_, current_snapshot_.num_raw_min_output);
   get_n(num_raw_hl_tm_product_, current_snapshot_.num_raw_hl_tm_product);
   get_n(num_raw_solar_factor_, current_snapshot_.num_raw_solar_factor);
 
@@ -601,6 +617,8 @@ void EcodanDashboard::handle_state_(AsyncWebServerRequest *request) {
   p_f("hp_feed_temp", snap.hp_feed_temp);
   p_f("hp_return_temp", snap.hp_return_temp);
   p_f("outside_temp", snap.outside_temp);
+  p_f("liquid_pipe_temp", snap.liquid_pipe_temp);
+  p_f("condensing_temp", snap.condensing_temp);
   p_f("compressor_frequency", snap.compressor_frequency);
   p_f("flow_rate", snap.flow_rate);
   p_f("computed_output_power", snap.computed_output_power);
@@ -718,10 +736,6 @@ void EcodanDashboard::handle_state_(AsyncWebServerRequest *request) {
   p_n("raw_delta_room_temp", snap.num_raw_delta_room_temp.val);
   p_lim("raw_delta_room_temp_lim", snap.num_raw_delta_room_temp);
 
-  p_n("raw_max_output", snap.num_raw_max_output.val);
-  p_lim("raw_max_output_lim", snap.num_raw_max_output);
-  p_n("raw_min_output", snap.num_raw_min_output.val);
-  p_lim("raw_min_output_lim", snap.num_raw_min_output);
   p_n("raw_hl_tm_product", snap.num_raw_hl_tm_product.val);
 
   p_n("raw_solar_factor", snap.num_raw_solar_factor.val);
@@ -795,6 +809,9 @@ void EcodanDashboard::record_history_() {
   rec.z1_flow   = pack_temp_(get_sensor(z1_flow_temp_target_));
   rec.z2_flow   = pack_temp_(get_sensor(z2_flow_temp_target_));
   rec.freq      = pack_temp_(get_sensor(compressor_frequency_));
+  rec.outside     = pack_temp_(get_sensor(outside_temp_));
+  rec.liquid_pipe = pack_temp_(get_sensor(liquid_pipe_temp_));
+  rec.condensing  = pack_temp_(get_sensor(condensing_temp_));
   
   // Determine if the system is actively running AND heating (Mode 2 = HEAT_ON)
   bool is_running = bin_state_(status_compressor_) || (get_sensor(compressor_frequency_) > 0.0f);
@@ -906,12 +923,12 @@ void EcodanDashboard::handle_history_request_(AsyncWebServerRequest *request) {
     }
     first = false;
 
-    char item[128];
-    int len = snprintf(item, sizeof(item), "[%u,%d,%d,%d,%d,%d,%d,%d,%d,%d,%u,%d,%d]",
+    char item[160]; 
+    int len = snprintf(item, sizeof(item), "[%u,%d,%d,%d,%d,%d,%d,%d,%d,%d,%u,%d,%d,%d,%d,%d]",
       rec.timestamp, rec.hp_feed, rec.hp_return,
       rec.z1_sp, rec.z2_sp, rec.z1_curr, rec.z2_curr,
       rec.z1_flow, rec.z2_flow, rec.freq, rec.flags,
-      rec.cons, rec.prod
+      rec.cons, rec.prod, rec.outside, rec.liquid_pipe, rec.condensing
     );
     
     // Abort loop immediately if client drops the connection
@@ -953,16 +970,28 @@ void EcodanDashboard::update_actual_data(int hour, float actual_cons_kwh, float 
     this->odin_nvs_dirty_ = true;
 }
 
+void EcodanDashboard::nvs_task_(void *arg) {
+    EcodanDashboard *self = static_cast<EcodanDashboard *>(arg);
+    while (true) {
+        // Block indefinitely until loop() signals a write is needed.
+        // This task runs at priority 1 so flash writes never preempt lwIP (prio 18)
+        // or the ESPHome loop task (prio ~5).
+        if (xSemaphoreTake(self->nvs_trigger_, portMAX_DELAY) == pdTRUE) {
+            self->nvs_persist_odin_();
+        }
+    }
+}
+
 void EcodanDashboard::nvs_persist_odin_() {
     nvs_handle_t h;
     if (nvs_open("odin_cache", NVS_READWRITE, &h) != ESP_OK) {
-        ESP_LOGW(TAG, "NVS: failed to open odin_cache for write");
+        esp_log_write(ESP_LOG_WARN, TAG, "NVS: failed to open odin_cache for write\n");
         return;
     }
 
     // 1. Lock the mutex only briefly to read the data
     if (this->snapshot_mutex_ == NULL || xSemaphoreTake(this->snapshot_mutex_, pdMS_TO_TICKS(200)) != pdTRUE) {
-        ESP_LOGW(TAG, "NVS persist: failed to acquire snapshot mutex, skipping");
+        esp_log_write(ESP_LOG_WARN, TAG, "NVS persist: failed to acquire snapshot mutex, skipping\n");
         nvs_close(h);
         return;
     }
@@ -975,7 +1004,9 @@ void EcodanDashboard::nvs_persist_odin_() {
         has_changes = true;
     }
 
-    uint8_t current_show_tab = (this->sw_show_solver_tab_ != nullptr && this->sw_show_solver_tab_->state) ? 1 : 0;
+    // Read show_tab from the atomic cache — safe to access from this task context.
+    // The cache is updated in loop() (main task) just before signalling this task.
+    uint8_t current_show_tab = this->nvs_show_tab_cache_.load() ? 1 : 0;
     uint8_t stored_show_tab = 0;
     if (nvs_get_u8(h, "show_tab", &stored_show_tab) != ESP_OK || stored_show_tab != current_show_tab) {
         nvs_set_u8(h, "show_tab", current_show_tab);
@@ -1015,7 +1046,6 @@ void EcodanDashboard::nvs_persist_odin_() {
     save_arr("prod",     this->odin_production_);
     save_arr("exp_t",    this->odin_expected_temp_);
     save_arr("cost",     this->odin_cost_);
-    save_arr("cost_tax", this->odin_cost_tax_);
     save_arr("batt",     this->odin_battery_discharge_);
     save_arr("act_cons",   this->odin_actual_cons_);
     save_arr("act_prod",   this->odin_actual_prod_);
@@ -1033,9 +1063,9 @@ void EcodanDashboard::nvs_persist_odin_() {
 
     if (has_changes) {
         nvs_commit(h);
-        ESP_LOGI(TAG, "NVS: ODIN arrays updated and persisted (day=%d)", log_day);
+        esp_log_write(ESP_LOG_INFO, TAG, "NVS: ODIN arrays updated and persisted (day=%d)\n", log_day);
     } else {
-        ESP_LOGD(TAG, "NVS: ODIN arrays match NVS exact state, skipping physical write (day=%d)", log_day);
+        esp_log_write(ESP_LOG_DEBUG, TAG, "NVS: ODIN arrays match NVS exact state, skipping physical write (day=%d)\n", log_day);
     }
     nvs_close(h);
 }
@@ -1091,7 +1121,6 @@ void EcodanDashboard::load_odin_data(int current_day) {
            && load_arr("energy",   this->odin_energy_)
            && load_arr("exp_t",    this->odin_expected_temp_)
            && load_arr("cost",     this->odin_cost_)
-           && load_arr("cost_tax", this->odin_cost_tax_)
            && load_arr("batt",     this->odin_battery_discharge_)
            && load_arr("prod",     this->odin_production_);
 
@@ -1128,7 +1157,6 @@ void EcodanDashboard::load_odin_data(int current_day) {
                 shift_arr(this->odin_production_, NAN);
                 shift_arr(this->odin_expected_temp_, NAN);
                 shift_arr(this->odin_cost_, NAN);
-                shift_arr(this->odin_cost_tax_, NAN);
                 shift_arr(this->odin_battery_discharge_, 0.0f);
                 shift_arr(this->odin_actual_cons_, NAN);
                 shift_arr(this->odin_actual_prod_, NAN);
@@ -1165,7 +1193,6 @@ void EcodanDashboard::store_odin_data(int current_hour, int current_day,
                                       const std::vector<float>& production,
                                       const std::vector<float>& exp_temp,
                                       const std::vector<float>& cost,
-                                      const std::vector<float>& cost_tax,
                                       const std::vector<float>& battery_discharge,
                                       const std::vector<float>& sched_base,
                                       const std::vector<float>& sched_min,
@@ -1192,7 +1219,6 @@ void EcodanDashboard::store_odin_data(int current_hour, int current_day,
     ensure_48(this->odin_production_, NAN);
     ensure_48(this->odin_expected_temp_, NAN);
     ensure_48(this->odin_cost_, NAN);
-    ensure_48(this->odin_cost_tax_, NAN);
     ensure_48(this->odin_actual_cons_, NAN);
     ensure_48(this->odin_actual_prod_, NAN);
     ensure_48(this->odin_actual_room_, NAN);
@@ -1225,7 +1251,6 @@ void EcodanDashboard::store_odin_data(int current_hour, int current_day,
             shift_arr(this->odin_production_, NAN);
             shift_arr(this->odin_expected_temp_, NAN);
             shift_arr(this->odin_cost_, NAN);
-            shift_arr(this->odin_cost_tax_, NAN);
             shift_arr(this->odin_battery_discharge_, 0.0f);
             shift_arr(this->odin_sched_base_, 0.0f);
             shift_arr(this->odin_sched_min_, 0.0f);
@@ -1266,7 +1291,6 @@ void EcodanDashboard::store_odin_data(int current_hour, int current_day,
             if (i < (int)energy.size()     && !std::isnan(energy[i]))      this->odin_energy_[target_idx]            = energy[i];
             if (i < (int)production.size() && !std::isnan(production[i]))  this->odin_production_[target_idx]        = production[i];
             if (i < (int)cost.size()       && !std::isnan(cost[i]))        this->odin_cost_[target_idx]              = cost[i];
-            if (i < (int)cost_tax.size()   && !std::isnan(cost_tax[i]))    this->odin_cost_tax_[target_idx]          = cost_tax[i];
             if (i < (int)battery_discharge.size() && !std::isnan(battery_discharge[i])) this->odin_battery_discharge_[target_idx] = battery_discharge[i];
             if (i < (int)op_mode.size()    && !std::isnan(op_mode[i]))     this->odin_operation_mode_[target_idx]    = op_mode[i];
             if (i < (int)exp_temp.size()   && !std::isnan(exp_temp[i]))    this->odin_expected_temp_[target_idx]     = exp_temp[i];
@@ -1306,7 +1330,6 @@ void EcodanDashboard::handle_odin_request_(AsyncWebServerRequest *request) {
       print_arr("heat_production",        this->odin_production_);
       print_arr("expected_begin_temp",    this->odin_expected_temp_);
       print_arr("expected_cost",          this->odin_cost_);
-      print_arr("expected_cost_with_tax", this->odin_cost_tax_);
       print_arr("battery_discharge",      this->odin_battery_discharge_);
       print_arr("sched_base",             this->odin_sched_base_);
       print_arr("sched_min",              this->odin_sched_min_);
@@ -1323,7 +1346,7 @@ void EcodanDashboard::handle_odin_request_(AsyncWebServerRequest *request) {
       response->printf(
           "\"last_run\":{\"execution_ms\":%u,\"heat_loss\":%.3f,\"base_cop\":%.2f,"
           "\"thermal_mass\":%.1f,\"exp_consumption\":%.2f,\"exp_production\":%.2f,"
-          "\"exp_solar\":%.2f,\"exp_solar_total\":%.2f,\"total_cost\":%.4f,\"total_cost_tax\":%.4f}}",
+          "\"exp_solar\":%.2f,\"exp_solar_total\":%.2f,\"used_solar_kwp\":%.2f,\"total_cost\":%.4f}}",
           this->last_run_stats_.execution_ms,
           this->last_run_stats_.heat_loss,
           this->last_run_stats_.base_cop,
@@ -1332,8 +1355,8 @@ void EcodanDashboard::handle_odin_request_(AsyncWebServerRequest *request) {
           this->last_run_stats_.exp_production,
           this->last_run_stats_.exp_solar,
           this->last_run_stats_.exp_solar_total,
-          this->last_run_stats_.total_cost,
-          this->last_run_stats_.total_cost_tax);
+          this->last_run_stats_.used_solar_kwp, 
+          this->last_run_stats_.total_cost);
     } else {
       response->print("{\"success\":false}");
     }
