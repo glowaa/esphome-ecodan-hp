@@ -709,19 +709,25 @@ header {
 
       <div id="run-stats-block" style="display:none; margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px;">
         <div class="sub-label" style="margin:0 0 6px 0;">LAST RUN RESULT</div>
-        <div style="display:grid; grid-template-columns:1fr auto; gap:4px 10px; align-items:center;">
-          <span class="ctrl-label">Execution time</span>   <span id="rs-exec"    class="ctrl-value" style="text-align:right;">—</span>
-          <span class="ctrl-label">Heat loss</span>        <span id="rs-hloss"   class="ctrl-value" style="text-align:right;">—</span>
-          <span class="ctrl-label">Base COP</span>         <span id="rs-cop"     class="ctrl-value" style="text-align:right;">—</span>
-          <span class="ctrl-label">Thermal mass</span>     <span id="rs-tmass"   class="ctrl-value" style="text-align:right;">—</span>
-          <span class="ctrl-label">Expected consumption</span>  <span id="rs-econs"   class="ctrl-value" style="text-align:right;">—</span>
-          <span class="ctrl-label">Expected production</span>   <span id="rs-eprod"   class="ctrl-value" style="text-align:right;">—</span>
-          <span class="ctrl-label">Solar used by HP</span>      <span id="rs-solar"   class="ctrl-value" style="text-align:right;">—</span>
-          <span class="ctrl-label">Total solar generation</span><span id="rs-solar-total" class="ctrl-value" style="text-align:right;">—</span>
-          <span class="ctrl-label">Expected cost</span>         <span id="rs-cost"    class="ctrl-value" style="text-align:right; color:var(--accent2);">—</span>
+          <div style="display:grid; grid-template-columns:1fr auto; gap:4px 10px; align-items:center;">  
+            <span class="ctrl-label">Last result time</span> <span id="rs-time" class="ctrl-value" style="text-align:right;">—</span>
+  
+            <span class="ctrl-label">Execution time</span>   <span id="rs-exec"    class="ctrl-value" style="text-align:right;">—</span>
+            <span class="ctrl-label">Evaluated nodes</span>  <span id="rs-nodes"   class="ctrl-value" style="text-align:right;">—</span>
+            <span class="ctrl-label">Heat loss</span>        <span id="rs-hloss"   class="ctrl-value" style="text-align:right;">—</span>
+            <span class="ctrl-label">Base COP</span>         <span id="rs-cop"     class="ctrl-value" style="text-align:right;">—</span>
+            <span class="ctrl-label">Thermal mass</span>     <span id="rs-tmass"   class="ctrl-value" style="text-align:right;">—</span>
+            
+            <div class="sub-label" style="grid-column: 1 / -1; margin: 12px 0 4px 0;">EXPECTED TOTALS</div>
+
+            <span class="ctrl-label">Consumption</span>           <span id="rs-econs"   class="ctrl-value" style="text-align:right;">—</span>
+            <span class="ctrl-label">Production</span>            <span id="rs-eprod"   class="ctrl-value" style="text-align:right;">—</span>
+            <span class="ctrl-label">Solar used by HP</span>      <span id="rs-solar"   class="ctrl-value" style="text-align:right;">—</span>
+            <span class="ctrl-label">Total solar generation</span><span id="rs-solar-total" class="ctrl-value" style="text-align:right;">—</span>
+            <span class="ctrl-label">Cost</span>                  <span id="rs-cost"    class="ctrl-value" style="text-align:right; color:var(--accent);">—</span>
+          </div>
         </div>
       </div>
-    </div>
 
     <div class="ctrl-card physics-card">
       <div class="section-title">Physics Data (Daily Averages)</div>
@@ -951,6 +957,18 @@ let lastGraphUpdate = 0;
 let initialZoomDone = false;
 let userZoomed = false;
 let tempChart = null, freqChart = null, statusChart = null, outsideTempChart = null;
+
+// currency symbol helper
+function getCurrencySymbol(bzn) {
+    const zone = (bzn || "NL").toUpperCase();
+    if (zone.startsWith("SE") || zone.startsWith("NO") || zone.startsWith("DK")) return "kr";
+    if (zone === "GB" || zone === "UK") return "£";
+    if (zone === "PL") return "zł";
+    if (zone === "CZ") return "Kč";
+    if (zone === "HU") return "Ft";
+    if (zone === "CH") return "CHF";
+    return "€"; // Standaard Fallback
+}
 
 // Manual Upload
 function triggerUpload() { document.getElementById('ota-file').click(); }
@@ -1300,7 +1318,7 @@ function initCharts() {
   const labels48 = Array.from({length: 48}, (_, i) => `${i % 24}:00`);
   const monoFont = { family: "'JetBrains Mono'", size: 11 };
   const xAxis = { 
-      min: 23.5, 
+      min: -0.5, 
       max: 47.5,
       ticks: { 
           autoSkip: false,
@@ -1338,7 +1356,7 @@ function initCharts() {
   };
   const odinZoomConfig = {
       limits: {
-          x: { min: 0, max: 47, minRange: 2 }
+          x: { min: -0.5, max: 47.5, minRange: 2 }
       },
       pan: {
           enabled: true, mode: 'x', modifierKey: 'alt', threshold: 10,
@@ -1371,17 +1389,15 @@ function initCharts() {
       }
   };
 
-odinConsChart = new Chart(document.getElementById('odinConsChart').getContext('2d'), {
+  odinConsChart = new Chart(document.getElementById('odinConsChart').getContext('2d'), {
       type: 'bar',
       data: {
           labels: labels48,
           datasets: [
-              // Stack 0: Expected values split into Grid and Solar
               { label: 'Expected (Grid)',  data: [], backgroundColor: 'rgba(255,176,32,0.35)',  borderColor: '#ffb020', borderWidth: 1, stack: 'Stack 0' },
-              { label: 'Expected (Solar)', data: [], backgroundColor: 'rgba(144, 213, 255, 0.35)',  borderColor: '#57B9FF', borderWidth: 1, stack: 'Stack 0' },
-
-              // Stack 1: Actual values stand next to the expected stack
-              { label: 'Actual',           data: [], backgroundColor: 'rgba(127,255,127,0.35)', borderColor: '#7fff7f', borderWidth: 1, stack: 'Stack 1' }
+              { label: 'Expected (Solar)', data: [], backgroundColor: 'rgba(144, 213, 255, 0.35)',  borderColor: '#57B9FF', borderWidth: 1, stack: 'Stack 0' },          
+              { label: 'Actual Heat',      data: [], backgroundColor: 'rgba(127,255,127,0.35)', borderColor: '#7fff7f', borderWidth: 1, stack: 'Stack 1' },
+              { label: 'Actual DHW',       data: [], backgroundColor: 'rgba(255,107,53,0.35)',  borderColor: '#ff6b35', borderWidth: 1, stack: 'Stack 1' }
           ]
       },
       options: {
@@ -1391,25 +1407,21 @@ odinConsChart = new Chart(document.getElementById('odinConsChart').getContext('2
               zoom: odinZoomConfig
           },
           scales: {
-              // Enable stacking on both axes for the stacked layout to work properly
               x: { ...xAxis, stacked: true },
-              y: { 
-                  stacked: true, 
-                  ticks: { color: '#8295b8', font: monoFont }, 
-                  grid: { color: '#1e2d4a' },
-                  title: { display: true, text: 'kW', color: '#8295b8' } 
-              }
+              y: { stacked: true, ticks: { color: '#8295b8', font: monoFont }, grid: { color: '#1e2d4a' }, title: { display: true, text: 'kWh', color: '#8295b8' } }
           }
       }
   });
 
-odinProdChart = new Chart(document.getElementById('odinProdChart').getContext('2d'), {
+  odinProdChart = new Chart(document.getElementById('odinProdChart').getContext('2d'), {
       type: 'bar',
       data: {
           labels: labels48,
           datasets: [
-              { label: 'Expected',  data: [], backgroundColor: 'rgba(255,176,32,0.35)',  borderColor: '#ffb020', borderWidth: 1 },
-              { label: 'Actual',    data: [], backgroundColor: 'rgba(127,255,127,0.35)', borderColor: '#7fff7f', borderWidth: 1 }
+              { label: 'Expected Heat',  data: [], backgroundColor: 'rgba(255,176,32,0.35)',  borderColor: '#ffb020', borderWidth: 1, stack: 'Stack 0' },
+              { label: 'Expected Solar', data: [], backgroundColor: 'rgba(144, 213, 255, 0.35)',  borderColor: '#57B9FF', borderWidth: 1, stack: 'Stack 2' },
+              { label: 'Actual Heat',    data: [], backgroundColor: 'rgba(127,255,127,0.35)', borderColor: '#7fff7f', borderWidth: 1, stack: 'Stack 1' },
+              { label: 'Actual DHW',     data: [], backgroundColor: 'rgba(255,107,53,0.35)',  borderColor: '#ff6b35', borderWidth: 1, stack: 'Stack 1' }
           ]
       },
       options: {
@@ -1419,9 +1431,8 @@ odinProdChart = new Chart(document.getElementById('odinProdChart').getContext('2
               zoom: odinZoomConfig
           },
           scales: {
-              x: xAxis,
-              y: { ticks: { color: '#8295b8', font: monoFont }, grid: { color: '#1e2d4a' },
-                   title: { display: true, text: 'kW', color: '#8295b8' } }
+              x: { ...xAxis, stacked: true },
+              y: { stacked: true, ticks: { color: '#8295b8', font: monoFont }, grid: { color: '#1e2d4a' }, title: { display: true, text: 'kWh', color: '#8295b8' } }
           }
       }
   });
@@ -1554,7 +1565,7 @@ odinProdChart = new Chart(document.getElementById('odinProdChart').getContext('2
           scales: {
               x: xAxis,
               y: { ticks: { color: '#818cf8', font: monoFont }, grid: { color: '#1e2d4a' },
-                   title: { display: true, text: 'EUR/kWh', color: '#818cf8' } }
+                   title: { display: true, text: 'Currency/kWh', color: '#818cf8' } }
           }
       }
   });
@@ -1592,85 +1603,84 @@ odinProdChart = new Chart(document.getElementById('odinProdChart').getContext('2
 function updateOdinCharts() {
     if (!odinConsChart || !odinCostChart || !odinTempChart || !odinBattChart || !odinPriceChart || !odinWeatherChart || !odinProdChart) return;
 
-    // NVS actual data: already stored as per-hour deltas by the YAML (cur_start - prev_start).
-    // No delta calculation needed here — use values directly.
-    const rawNvsCons = odinDataCache ? (odinDataCache.actual_cons || new Array(48).fill(null)) : new Array(48).fill(null);
-    const rawNvsProd = odinDataCache ? (odinDataCache.actual_prod || new Array(48).fill(null)) : new Array(48).fill(null);
+    const rawNvsCons    = odinDataCache ? (odinDataCache.actual_cons      || new Array(48).fill(null)) : new Array(48).fill(null);
+    const rawNvsProd    = odinDataCache ? (odinDataCache.actual_prod      || new Array(48).fill(null)) : new Array(48).fill(null);
+    const rawNvsDhwCons = odinDataCache ? (odinDataCache.actual_dhw_cons  || new Array(48).fill(null)) : new Array(48).fill(null);
+    const rawNvsDhwProd = odinDataCache ? (odinDataCache.actual_dhw_prod  || new Array(48).fill(null)) : new Array(48).fill(null);
 
-    const actualConsByHour = rawNvsCons.map(v => v != null ? parseFloat(Math.max(0, v).toFixed(2)) : null);
-    const actualProdByHour = rawNvsProd.map(v => v != null ? parseFloat(Math.max(0, v).toFixed(2)) : null);
+    const actualConsHeatByHour = [...rawNvsCons];
+    const actualConsDhwByHour  = [...rawNvsDhwCons];
+    const actualProdHeatByHour = [...rawNvsProd];
+    const actualProdDhwByHour  = [...rawNvsDhwProd];
     const actualTempByHour  = odinDataCache ? [...(odinDataCache.actual_room_temp || new Array(48).fill(null))] : new Array(48).fill(null);
 
-    // Live history overlay
-    if (history.timestamps) {
-        const firstConsByHour = new Array(24).fill(null);
-        const lastConsByHour  = new Array(24).fill(null);
-        
-        const firstProdByHour = new Array(24).fill(null);
-        const lastProdByHour  = new Array(24).fill(null);
-        
+    // Live history overlay: Bereken incrementele deltas per modus (Heat vs DHW)
+    if (history.timestamps && history.timestamps.length > 0) {
+        const hConsHeat = new Array(24).fill(0);
+        const hConsDhw = new Array(24).fill(0);
+        const hProdHeat = new Array(24).fill(0);
+        const hProdDhw = new Array(24).fill(0);
+        const hHasData = new Array(24).fill(false);
         const firstTempByHour = new Array(24).fill(null);
+
+        let prevCons = null;
+        let prevProd = null;
 
         for (let i = 0; i < history.timestamps.length; i++) {
             const d = new Date(history.timestamps[i]);
-            if (d.toDateString() === new Date().toDateString()) {
-                const h = d.getHours();
-                if (history.cons[i] != null && history.mode[i] === 'Heating') {
-                    if (firstConsByHour[h] === null) firstConsByHour[h] = history.cons[i];
-                    lastConsByHour[h] = history.cons[i];
-                }
-                if (history.prod[i] != null && history.mode[i] === 'Heating') {
-                    if (firstProdByHour[h] === null) firstProdByHour[h] = history.prod[i];
-                    lastProdByHour[h] = history.prod[i];
-                }
-                if (history.z1curr[i] != null && firstTempByHour[h] === null)
-                    firstTempByHour[h] = history.z1curr[i];
-            }
-        }
+            const isToday = d.toDateString() === new Date().toDateString();
+            if (!isToday) continue;
 
-        const hourlyDeltaCons = new Array(24).fill(null);
-        const hourlyDeltaProd = new Array(24).fill(null);
-        
-        for (let h = 0; h < 24; h++) {
-            if (lastConsByHour[h] !== null) {
-                let prevMax = null;
-                for (let prev = h - 1; prev >= 0; prev--) {
-                    if (lastConsByHour[prev] !== null) { prevMax = lastConsByHour[prev]; break; }
+            const h = d.getHours();
+            const mode = history.mode[i];
+
+            if (history.z1curr[i] != null && firstTempByHour[h] === null) firstTempByHour[h] = history.z1curr[i];
+
+            if (history.cons[i] !== null) {
+                if (prevCons !== null) {
+                    let delta = history.cons[i] - prevCons;
+                    if (delta < 0) delta = history.cons[i]; 
+                    if (delta > 0) {
+                        hHasData[h] = true;
+                        if (mode === 'Heating') hConsHeat[h] += delta;
+                        else if (mode === 'Hot Water' || mode === 'Legionella') hConsDhw[h] += delta;
+                    }
                 }
-                let delta = (prevMax !== null) ? (lastConsByHour[h] - prevMax) : (lastConsByHour[h] - firstConsByHour[h]);
-                if (delta < 0) delta = lastConsByHour[h];
-                hourlyDeltaCons[h] = parseFloat(Math.max(0, delta).toFixed(2));
+                prevCons = history.cons[i];
             }
-            if (lastProdByHour[h] !== null) {
-                let prevMax = null;
-                for (let prev = h - 1; prev >= 0; prev--) {
-                    if (lastProdByHour[prev] !== null) { prevMax = lastProdByHour[prev]; break; }
+
+            if (history.prod[i] !== null) {
+                if (prevProd !== null) {
+                    let delta = history.prod[i] - prevProd;
+                    if (delta < 0) delta = history.prod[i];
+                    if (delta > 0) {
+                        hHasData[h] = true;
+                        if (mode === 'Heating') hProdHeat[h] += delta;
+                        else if (mode === 'Hot Water' || mode === 'Legionella') hProdDhw[h] += delta;
+                    }
                 }
-                let delta = (prevMax !== null) ? (lastProdByHour[h] - prevMax) : (lastProdByHour[h] - firstProdByHour[h]);
-                if (delta < 0) delta = lastProdByHour[h];
-                hourlyDeltaProd[h] = parseFloat(Math.max(0, delta).toFixed(2));
+                prevProd = history.prod[i];
             }
         }
 
         for (let h = 0; h < 24; h++) {
-            // Map live history to the "Today" portion of the 48h array (indexes 24-47)
-            if (hourlyDeltaCons[h] !== null) actualConsByHour[h + 24] = hourlyDeltaCons[h];
-            if (hourlyDeltaProd[h] !== null) actualProdByHour[h + 24] = hourlyDeltaProd[h];
-            if (firstTempByHour[h] !== null) actualTempByHour[h + 24] = firstTempByHour[h];
+            if (hHasData[h]) {
+                actualConsHeatByHour[h] = parseFloat(hConsHeat[h].toFixed(2));
+                actualConsDhwByHour[h]  = parseFloat(hConsDhw[h].toFixed(2));
+                actualProdHeatByHour[h] = parseFloat(hProdHeat[h].toFixed(2));
+                actualProdDhwByHour[h]  = parseFloat(hProdDhw[h].toFixed(2));
+            }
+            if (firstTempByHour[h] !== null) actualTempByHour[h] = firstTempByHour[h];
         }
+    }
 
-        const currentLocalHour = new Date().getHours();
-        for (let h = 24; h < 48; h++) {
-            // Hide incomplete energy bars for both the current AND future hours
-            if ((h - 24) >= currentLocalHour) {
-                actualConsByHour[h] = null;
-                actualProdByHour[h] = null;
-            }
-            // Hide the temperature line ONLY for strictly future hours
-            if ((h - 24) > currentLocalHour) {
-                actualTempByHour[h] = null;
-            }
+    const currentLocalHour = new Date().getHours();
+    for (let h = 0; h < 48; h++) {
+        if (h >= currentLocalHour) {
+            actualConsHeatByHour[h] = null; actualConsDhwByHour[h] = null;
+            actualProdHeatByHour[h] = null; actualProdDhwByHour[h] = null;
         }
+        if (h > currentLocalHour) actualTempByHour[h] = null;
     }
 
     const expCons       = odinDataCache ? odinDataCache.energy_consumption         : new Array(48).fill(null);
@@ -1691,59 +1701,70 @@ function updateOdinCharts() {
     const actualCost = new Array(48).fill(null);
     const expConsGrid = new Array(48).fill(null);
     const expConsSolar = new Array(48).fill(null);
+    const expProdSolar = new Array(48).fill(null);
     
     const solarKwp = odinDataCache?.last_run?.used_solar_kwp || 0;
+    const solarCorrection = odinDataCache?.last_run?.used_solar_correction || 1.0;
 
     // Single loop to process all hourly data
     for (let h = 0; h < 48; h++) {
-        // Calculate the solar production once per hour
         const sol_wm2 = solar[h] || 0; 
-        const expected_solar_kwh = sol_wm2 * (solarKwp / 1000);
+        const expected_solar_kwh = (sol_wm2 / 1000) * solarKwp * solarCorrection;
+        expProdSolar[h] = parseFloat(expected_solar_kwh.toFixed(2));
 
-        // --- 1. Actual Cost Calculation ---
-        const actual_cons = actualConsByHour[h];
-        const price = prices[h];
+        // Heat + DHW
+        let total_actual_cons = null;
+        if (actualConsHeatByHour[h] !== null || actualConsDhwByHour[h] !== null) {
+            total_actual_cons = (actualConsHeatByHour[h] || 0) + (actualConsDhwByHour[h] || 0);
+        }
         
-        if (actual_cons !== null && price !== null) {
-            const net_cons = Math.max(0, actual_cons - expected_solar_kwh);            
+        const price = prices[h];
+        if (total_actual_cons !== null && price !== null) {
+            const net_cons = Math.max(0, total_actual_cons - expected_solar_kwh);            
             actualCost[h] = parseFloat((net_cons * price).toFixed(4));
         }
 
-        // --- 2. Expected Consumption Split Calculation ---
         const exp_cons = expCons[h];
-        
         if (exp_cons !== null) {
-            // Solar used cannot exceed the total expected consumption for that hour
             const solar_used = Math.min(exp_cons, expected_solar_kwh);
             const grid_used = exp_cons - solar_used;
-
             expConsSolar[h] = parseFloat(solar_used.toFixed(2));
             expConsGrid[h] = parseFloat(grid_used.toFixed(2));
         }
     }
 
-    // Energy Cons chart
     odinConsChart.data.datasets[0].data = expConsGrid;
     odinConsChart.data.datasets[1].data = expConsSolar;
-    odinConsChart.data.datasets[2].data = actualConsByHour;
+    odinConsChart.data.datasets[2].data = actualConsHeatByHour;
+    odinConsChart.data.datasets[3].data = actualConsDhwByHour;
     odinConsChart.update('none');
     
-    // Energy Prod chart
     odinProdChart.data.datasets[0].data = expProd;
-    odinProdChart.data.datasets[1].data = actualProdByHour;
+    odinProdChart.data.datasets[1].data = expProdSolar;
+    odinProdChart.data.datasets[2].data = actualProdHeatByHour;
+    odinProdChart.data.datasets[3].data = actualProdDhwByHour;
     odinProdChart.update('none');
 
-    // Cost chart: Exp Cost, Actual Cost
+    // Update Valuta Symbolen voor beide grafieken
+    const currSym = getCurrencySymbol(odinDataCache?.last_run?.bidding_zone);
+    
+    // Cost Graph Y-as (bijv. "€" of "kr")
+    odinCostChart.options.scales.y.title.text = currSym;
     odinCostChart.data.datasets[0].data = expCost;
     odinCostChart.data.datasets[1].data = actualCost;
     odinCostChart.update('none');
+
+    // Price Graph Y-as (bijv. "€/kWh" of "kr/kWh")
+    odinPriceChart.options.scales.y.title.text = currSym + '/kWh';
+    odinPriceChart.data.datasets[0].data = pricesKwh;
+    odinPriceChart.update('none');
 
     // Bar charts ignore x min/max from axis config after data update — re-apply zoom.
     // Without this, bar charts reset to full 0-47 range on every data refresh,
     // causing index 24 (hour 0 today) to appear off-screen until the user scrolls.
     if (!odinZoomed) {
         [odinConsChart, odinProdChart, odinCostChart, odinBattChart].forEach(c => {
-            if (c) c.zoomScale('x', {min: 23.5, max: 47.5}, 'none');
+            if (c) c.zoomScale('x', {min: -0.5, max: 23.5}, 'none');
         });
     }
 
@@ -1777,23 +1798,14 @@ function updateOdinCharts() {
     const rs = odinDataCache && odinDataCache.last_run;
     const statsBlock = document.getElementById('run-stats-block');
     if (rs && statsBlock && rs.execution_ms > 0) {
-        statsBlock.style.display = '';
-        document.getElementById('rs-exec').textContent    = rs.execution_ms + ' ms';
-        document.getElementById('rs-hloss').textContent   = rs.heat_loss.toFixed(3) + ' kW/K';
-        document.getElementById('rs-cop').textContent     = rs.base_cop.toFixed(2);
-        document.getElementById('rs-tmass').textContent   = rs.thermal_mass.toFixed(1) + ' kWh/K';
-        document.getElementById('rs-econs').textContent   = rs.exp_consumption.toFixed(2) + ' kWh';
-        document.getElementById('rs-eprod').textContent   = rs.exp_production.toFixed(2) + ' kWh';
-        document.getElementById('rs-solar').textContent         = rs.exp_solar.toFixed(2) + ' kWh';
-        document.getElementById('rs-solar-total').textContent   = (rs.exp_solar_total || rs.exp_solar).toFixed(2) + ' kWh';
-        document.getElementById('rs-cost').textContent    = '€' + rs.total_cost.toFixed(4);
+        updateRunStatsUI(rs);
     }
 
     // Auto-focus to today (index 24-47) unless user has manually zoomed/panned
     if (!odinZoomed) {
         [odinConsChart, odinProdChart, odinCostChart, odinTempChart, 
         odinBattChart, odinPriceChart, odinWeatherChart].forEach(c => {
-            if (c) c.zoomScale('x', {min: 23.5, max: 47.5}, 'none');
+            if (c) c.zoomScale('x', {min: -0.5, max: 23.5}, 'none');
         });
     }
 }
@@ -2498,7 +2510,9 @@ async function runOdinSolver() {
             dhw_temp: latestState.dhw_temp || 0,
             dhw_target: latestState.dhw_flow_temp_target || 0,
             dhw_drop: latestState.dhw_flow_temp_drop || 0,
-            dhw_start_threshold: pending['dhw-thresh'] ?? latestState.dhw_start_threshold ?? 0.0
+            dhw_start_threshold: pending['dhw-thresh'] ?? latestState.dhw_start_threshold ?? 0.0,
+            // 0=OFF,1=DHW_ON,2=HEAT_ON,3=COOL_ON,5=FROST_PROTECT,6=LEGIONELLA,255=UNAVAILABLE
+            current_operation_mode: latestState.operation_mode ?? 0
         }
     };
 
@@ -2514,22 +2528,20 @@ async function runOdinSolver() {
         if (data.success) {
           if (!odinDataCache) odinDataCache = {};
             
-            // Safely inject the 24h solver data into the "Today" (24-47) portion of the cache
-            const inject48 = (key, new24, preserveCurrentHour = false) => {
+            // Safely inject the 48h solver data into the cache directly
+            const inject48 = (key, new48, preserveCurrentHour = false) => {
                 if (!odinDataCache[key] || odinDataCache[key].length !== 48) {
-                    let old = odinDataCache[key] || [];
                     odinDataCache[key] = new Array(48).fill(null);
-                    if (old.length === 24) {
-                        for(let i=0; i<24; i++) odinDataCache[key][i+24] = old[i];
-                    }
                 }
-                if (new24 && new24.length >= 24) {
-                    for (let i = 0; i < 24; i++) {
-                        let isCurrent = (i === solveHour && solveHour !== 0);
-                        if (preserveCurrentHour && isCurrent) continue;
+                if (new48 && new48.length >= 48) {
+                    for (let i = 0; i < 48; i++) {
+                        let isCurrent = (i === solveHour);
+                        
+                        // Protect the current hour from jumping mid-hour if requested
+                        if (preserveCurrentHour && isCurrent && odinDataCache[key][i] !== null) continue;
 
-                        if (new24[i] !== null && new24[i] !== undefined) {
-                            odinDataCache[key][i + 24] = new24[i];
+                        if (new48[i] !== null && new48[i] !== undefined) {
+                            odinDataCache[key][i] = new48[i];
                         }
                     }
                 }
@@ -2551,6 +2563,7 @@ async function runOdinSolver() {
 
             odinDataCache.last_run = {
                 execution_ms:    data.execution_ms                 || 0,
+                evaluated_nodes: data.evaluated_nodes              || 0,
                 heat_loss:       data.used_heat_loss               || 0,
                 base_cop:        data.used_base_cop                || 0,
                 thermal_mass:    data.used_thermal_mass            || 0,
@@ -2559,7 +2572,8 @@ async function runOdinSolver() {
                 exp_solar:       data.total_solar_used_kwh         || 0,
                 exp_solar_total: data.total_solar_kwh              || data.total_solar_used_kwh || 0,
                 total_cost:      data.total_cost                   || 0,
-                used_solar_kwp:  data.used_solar_kwp               || 0
+                used_solar_kwp:  data.used_solar_kwp               || 0,
+                used_solar_correction: data.used_solar_correction  || 1.0
             };
 
             updateOdinCharts();
@@ -2754,7 +2768,34 @@ function showResetButton() {
   document.getElementById('btn-reset-zoom').style.display = 'block';
 }
 
-let odinZoomed = false;
+let lastRunSignature = "";
+
+function updateRunStatsUI(lr) {
+    if (!lr) return;
+    document.getElementById('run-stats-block').style.display = 'block';
+
+    const currentSig = `${lr.execution_ms}-${lr.total_cost}-${lr.exp_consumption}`;
+    if (currentSig !== lastRunSignature) {
+        lastRunSignature = currentSig;
+        const now = new Date();
+        document.getElementById('rs-time').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    }
+
+    document.getElementById('rs-exec').innerText = lr.execution_ms + " ms";
+    if (document.getElementById('rs-nodes')) {
+        document.getElementById('rs-nodes').innerText = lr.evaluated_nodes ? lr.evaluated_nodes.toLocaleString('nl-NL') : "0";
+    }
+    document.getElementById('rs-hloss').innerText = lr.heat_loss.toFixed(3) + " kW/K";
+    document.getElementById('rs-cop').innerText = lr.base_cop.toFixed(2);
+    document.getElementById('rs-tmass').innerText = lr.thermal_mass.toFixed(1) + " kWh/K";
+    document.getElementById('rs-econs').innerText = lr.exp_consumption.toFixed(2) + " kWh";
+    document.getElementById('rs-eprod').innerText = lr.exp_production.toFixed(2) + " kWh";
+    document.getElementById('rs-solar').innerText = lr.exp_solar.toFixed(2) + " kWh";
+    document.getElementById('rs-solar-total').innerText = lr.exp_solar_total.toFixed(2) + " kWh";
+    
+    const curr = getCurrencySymbol(lr.bidding_zone);
+    document.getElementById('rs-cost').innerHTML = curr + " " + lr.total_cost.toFixed(4);
+}
 
 function syncOdinScales(sourceChart) {
   const min = sourceChart.scales.x.min;
@@ -2768,11 +2809,13 @@ function syncOdinScales(sourceChart) {
   showOdinResetButton();
 }
 
+let odinZoomed = false;
+
 function resetOdinZoom() {
     odinZoomed = false;
     [odinConsChart, odinProdChart, odinCostChart, odinTempChart, 
      odinBattChart, odinPriceChart, odinWeatherChart].forEach(c => {
-        if (c) c.zoomScale('x', {min: 23.5, max: 47.5}, 'none');
+        if (c) c.zoomScale('x', {min: -0.5, max: 23.5}, 'none');
     });
     document.getElementById('btn-reset-zoom-odin').style.display = 'none';
 }

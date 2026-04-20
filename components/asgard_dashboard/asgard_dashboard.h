@@ -259,7 +259,7 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   void set_sw_use_solver(switch_::Switch *s) { sw_use_solver_ = s; }
   void set_sw_show_solver_tab(switch_::Switch *s) { sw_show_solver_tab_ = s; }
   void set_bin_solver_connected(binary_sensor::BinarySensor *b) { bin_solver_connected_ = b; }
-  void set_txt_solver_ip(text_sensor::TextSensor *t) { txt_solver_ip_ = t; }
+  void set_txt_solver_ip(text::Text *t) { txt_solver_ip_ = t; }
   void set_solver_kwh_meter_feedback_source(select::Select *s) { solver_kwh_meter_feedback_source_ = s; }
   void set_solver_kwh_meter_feedback(number::Number *n) { solver_kwh_meter_feedback_ = n; }
 
@@ -283,12 +283,14 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   // Solver run stats populated from YAML after each solve
   struct LastRunStats {
       uint32_t execution_ms{0};
+      uint32_t evaluated_nodes{0};
       float heat_loss{0.0f}, base_cop{0.0f}, thermal_mass{0.0f};
       float exp_consumption{0.0f}, exp_production{0.0f}, exp_solar{0.0f}, exp_solar_total{0.0f};
       float total_cost{0.0f};
       float used_solar_kwp{0.0f};
       float min_output{0.0f};
       float max_output{0.0f};
+      std::string bidding_zone;
   } last_run_stats_;
 
   // Called from YAML after each successful solver response
@@ -310,7 +312,7 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   void load_odin_data(int current_day);
 
   // Called each hour by YAML to track actual consumption and room temp per-hour slot
-  void update_actual_data(int hour, float actual_cons_kwh, float actual_prod_kwh, float actual_room_temp);
+  void update_actual_data(int hour, float actual_cons_kwh, float actual_prod_kwh, float dhw_cons, float dhw_prod, float actual_room_temp);
 
  protected:
   void handle_root_(AsyncWebServerRequest *request);
@@ -422,7 +424,7 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   switch_::Switch *sw_use_solver_{nullptr};
   switch_::Switch *sw_show_solver_tab_{nullptr};
   binary_sensor::BinarySensor *bin_solver_connected_{nullptr};
-  text_sensor::TextSensor *txt_solver_ip_{nullptr};
+  text::Text *txt_solver_ip_{nullptr};
   select::Select *solver_kwh_meter_feedback_source_{nullptr};
   number::Number *solver_kwh_meter_feedback_{nullptr};
 
@@ -462,6 +464,8 @@ private:
   std::vector<float> odin_expected_temp_;
   std::vector<float> odin_cost_;
   std::vector<float> odin_battery_discharge_;
+  std::vector<float> odin_actual_dhw_cons_; // actual kWh consumed during DHW
+  std::vector<float> odin_actual_dhw_prod_; // actual kWh heat produced during DHW
   std::vector<float> odin_actual_cons_;    // actual kWh consumed per hour (NVS persisted)
   std::vector<float> odin_actual_prod_;    // actual kWh produced per hour (NVS persisted)
   std::vector<float> odin_actual_room_;    // actual room temp at start of each hour (NVS persisted)
