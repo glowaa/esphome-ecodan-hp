@@ -1,5 +1,6 @@
 #include "asgard_dashboard.h"
 #include "dashboard_html.h"
+#include "setup_html.h"
 #include "dashboard_js.h"
 #include "esphome/core/log.h"
 #include "esphome/core/application.h"
@@ -98,6 +99,7 @@ bool EcodanDashboard::canHandle(AsyncWebServerRequest *request) const {
   char url_buf[AsyncWebServerRequest::URL_BUF_SIZE];
   auto url = request->url_to(url_buf);
   return (url == "/dashboard" || url == "/dashboard/" ||
+          url == "/dashboard/setup" ||
           url == "/dashboard/state" || url == "/dashboard/set" ||
           url == "/dashboard/history" || url == "/dashboard/odin" ||
           url == "/js/chart.js" || url == "/js/hammer.js" || url == "/js/zoom.js"); 
@@ -108,6 +110,7 @@ void EcodanDashboard::handleRequest(AsyncWebServerRequest *request) {
   auto url = request->url_to(url_buf);
   
   if      (url == "/dashboard" || url == "/dashboard/") handle_root_(request);
+  else if (url == "/dashboard/setup")                   handle_setup_(request);
   else if (url == "/dashboard/state")                   handle_state_(request);
   else if (url == "/dashboard/set")                     handle_set_(request);
   else if (url == "/dashboard/history")                 handle_history_request_(request);
@@ -155,6 +158,10 @@ void EcodanDashboard::send_chunked_(AsyncWebServerRequest *request, const char *
 
 void EcodanDashboard::handle_root_(AsyncWebServerRequest *request) {
   send_chunked_(request, "text/html", DASHBOARD_HTML_GZ, DASHBOARD_HTML_GZ_LEN, "no-cache");
+}
+
+void EcodanDashboard::handle_setup_(AsyncWebServerRequest *request) {
+  send_chunked_(request, "text/html", SETUP_HTML_GZ, SETUP_HTML_GZ_LEN, "no-cache");
 }
 
 void EcodanDashboard::handle_js_(AsyncWebServerRequest *request) {
@@ -357,6 +364,11 @@ void EcodanDashboard::dispatch_set_(const std::string &key, const std::string &s
   if (key == "battery_max_discharge_kw") { doNumber(num_battery_max_discharge_kw_); return; }
   if (key == "dhw_start_threshold") { doNumber(num_dhw_start_threshold_); return; }
 
+  if (key == "raw_cool_produced") { doNumber(num_raw_cool_produced_); return; }
+  if (key == "raw_cool_elec_consumed") { doNumber(num_raw_cool_elec_consumed_); return; }
+  if (key == "raw_cool_runtime_hours") { doNumber(num_raw_cool_runtime_hours_); return; }
+  if (key == "raw_cool_avg_outside_temp") { doNumber(num_raw_cool_avg_outside_temp_); return; }
+
   if (key == "predictive_short_cycle_high_delta_time_window")    { doNumber(pred_sc_time_);    return; }
   if (key == "predictive_short_cycle_high_delta_threshold")    { doNumber(pred_sc_delta_);    return; }
 
@@ -534,6 +546,11 @@ void EcodanDashboard::update_snapshot_() {
   get_n(num_raw_delta_room_temp_, current_snapshot_.num_raw_delta_room_temp);
   get_n(num_raw_hl_tm_product_, current_snapshot_.num_raw_hl_tm_product);
   get_n(num_raw_solar_factor_, current_snapshot_.num_raw_solar_factor);
+
+  get_n(num_raw_cool_produced_, current_snapshot_.num_raw_cool_produced);
+  get_n(num_raw_cool_elec_consumed_, current_snapshot_.num_raw_cool_elec_consumed);
+  get_n(num_raw_cool_runtime_hours_, current_snapshot_.num_raw_cool_runtime_hours);
+  get_n(num_raw_cool_avg_outside_temp_, current_snapshot_.num_raw_cool_avg_outside_temp);
 
   get_n(num_battery_soc_kwh_, current_snapshot_.num_battery_soc_kwh);
   get_n(num_battery_max_discharge_kw_, current_snapshot_.num_battery_max_discharge_kw);
@@ -795,6 +812,16 @@ void EcodanDashboard::handle_state_(AsyncWebServerRequest *request) {
   p_lim("battery_max_discharge_kw_lim", snap.num_battery_max_discharge_kw);
   p_n("dhw_start_threshold",    snap.num_dhw_start_threshold.val);
   p_lim("dhw_start_threshold_lim", snap.num_dhw_start_threshold);
+
+  p_n("raw_cool_produced",      snap.num_raw_cool_produced.val);
+  p_lim("raw_cool_produced_lim",snap.num_raw_cool_produced);
+  p_n("raw_cool_elec_consumed", snap.num_raw_cool_elec_consumed.val);
+  p_lim("raw_cool_elec_consumed_lim",snap.num_raw_cool_elec_consumed);
+  p_n("raw_cool_runtime_hours", snap.num_raw_cool_runtime_hours.val);
+  p_lim("raw_cool_runtime_hours_lim",snap.num_raw_cool_runtime_hours);
+  p_n("raw_cool_avg_outside_temp",   snap.num_raw_cool_avg_outside_temp.val);
+  p_lim("raw_cool_avg_outside_temp_lim", snap.num_raw_cool_avg_outside_temp);
+  
   if (!flush()) { httpd_resp_send_chunk(req, nullptr, 0); return; }
 
   // --- String fields (solver IP, version) — escape inline into buf ---
@@ -1278,13 +1305,6 @@ void EcodanDashboard::load_odin_data(int current_day) {
         return;
     }
 
-    // Restore show_tab — calling ESPHome objects is safe from the loop task
-    if (this->sw_show_solver_tab_ != nullptr) {
-        if (stored_show_tab) this->sw_show_solver_tab_->turn_on();
-        else                 this->sw_show_solver_tab_->turn_off();
-        ESP_LOGI(TAG, "NVS: show_solver_tab restored to %d", stored_show_tab);
-    }
-
     if (ok) {
         // Copy local snap buffers into member vectors
         auto copy_snap = [&](int idx, std::vector<float>& v) {
@@ -1320,6 +1340,13 @@ void EcodanDashboard::load_odin_data(int current_day) {
     }
 
     xSemaphoreGive(this->snapshot_mutex_);
+
+    // Restore show_tab AFTER releasing the mutex.
+    if (this->sw_show_solver_tab_ != nullptr) {
+        if (stored_show_tab) this->sw_show_solver_tab_->turn_on();
+        else                 this->sw_show_solver_tab_->turn_off();
+        ESP_LOGI(TAG, "NVS: show_solver_tab restored to %d", stored_show_tab);
+    }
 }
 
 void EcodanDashboard::store_odin_data(int current_hour, int current_day,
@@ -1545,19 +1572,22 @@ void EcodanDashboard::handle_odin_request_(AsyncWebServerRequest *request) {
           "\"today_start_index\":24,"
           "\"last_run\":{\"execution_ms\":%u,\"evaluated_nodes\":%u,\"bidding_zone\":\"%s\",\"heat_loss\":%.3f,\"base_cop\":%.2f,"
           "\"thermal_mass\":%.1f,\"exp_consumption\":%.2f,\"exp_production\":%.2f,"
-          "\"exp_solar\":%.2f,\"exp_solar_total\":%.2f,\"used_solar_kwp\":%.2f,\"total_cost\":%.4f}}",
+          "\"exp_solar\":%.2f,\"exp_solar_total\":%.2f,\"used_solar_kwp\":%.2f,"
+          "\"used_solar_correction\":%.3f,\"used_battery_soc_kwh\":%.2f,\"total_cost\":%.4f}}",
           stats.current_hour,
           stats.execution_ms,
           stats.evaluated_nodes,
           stats.bidding_zone.c_str(),
-          stats.heat_loss, 
+          stats.heat_loss,
           stats.base_cop,
-          stats.thermal_mass, 
-          stats.exp_consumption, 
+          stats.thermal_mass,
+          stats.exp_consumption,
           stats.exp_production,
-          stats.exp_solar, 
-          stats.exp_solar_total, 
-          stats.used_solar_kwp, 
+          stats.exp_solar,
+          stats.exp_solar_total,
+          stats.used_solar_kwp,
+          stats.used_solar_correction,
+          stats.used_battery_soc_kwh,
           stats.total_cost);
 
       if (offset > 0 && offset < JSON_BUFFER_SIZE) {

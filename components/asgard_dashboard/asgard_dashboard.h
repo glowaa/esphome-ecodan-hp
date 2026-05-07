@@ -156,6 +156,11 @@ struct DashboardSnapshot {
   NumData num_raw_hl_tm_product;
   NumData num_raw_solar_factor;
 
+  NumData num_raw_cool_produced;
+  NumData num_raw_cool_elec_consumed;
+  NumData num_raw_cool_runtime_hours;
+  NumData num_raw_cool_avg_outside_temp;
+
   NumData num_battery_soc_kwh;
   NumData num_battery_max_discharge_kw;
 
@@ -291,6 +296,11 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   void set_num_raw_hl_tm_product(number::Number *n) { num_raw_hl_tm_product_ = n; }
   void set_num_raw_solar_factor(number::Number *n) { num_raw_solar_factor_ = n; }
 
+  void set_num_raw_cool_produced(number::Number *v) { num_raw_cool_produced_ = v; }
+  void set_num_raw_cool_elec_consumed(number::Number *v) { num_raw_cool_elec_consumed_ = v; }
+  void set_num_raw_cool_runtime_hours(number::Number *v) { num_raw_cool_runtime_hours_ = v; }
+  void set_num_raw_cool_avg_outside_temp(number::Number *v) { num_raw_cool_avg_outside_temp_ = v; }
+
   void set_num_battery_soc_kwh(number::Number *n) { num_battery_soc_kwh_ = n; }
   void set_num_battery_max_discharge_kw(number::Number *n) { num_battery_max_discharge_kw_ = n; }
 
@@ -308,6 +318,8 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
       float exp_consumption{0.0f}, exp_production{0.0f}, exp_solar{0.0f}, exp_solar_total{0.0f};
       float total_cost{0.0f};
       float used_solar_kwp{0.0f};
+      float used_solar_correction{1.0f};
+      float used_battery_soc_kwh{0.0f};
       float min_output{0.0f};
       float max_output{0.0f};
       std::string bidding_zone;
@@ -337,6 +349,7 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
 
  protected:
   void handle_root_(AsyncWebServerRequest *request);
+  void handle_setup_(AsyncWebServerRequest *request);
   void handle_state_(AsyncWebServerRequest *request);
   void handle_set_(AsyncWebServerRequest *request);
   void handle_odin_request_(AsyncWebServerRequest *request);
@@ -466,6 +479,11 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   number::Number *num_raw_delta_room_temp_{nullptr};
   number::Number *num_raw_hl_tm_product_{nullptr};
   number::Number *num_raw_solar_factor_{nullptr};
+
+  number::Number *num_raw_cool_produced_{nullptr};
+  number::Number *num_raw_cool_elec_consumed_{nullptr};
+  number::Number *num_raw_cool_runtime_hours_{nullptr};
+  number::Number *num_raw_cool_avg_outside_temp_{nullptr};
 
   number::Number *num_battery_soc_kwh_{nullptr};
   number::Number *num_battery_max_discharge_kw_{nullptr};
