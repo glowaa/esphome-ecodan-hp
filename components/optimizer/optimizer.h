@@ -63,6 +63,8 @@ namespace esphome
       uint32_t last_defrost_time_     = 0;
       DefrostState state_before_defrost_;
 
+      int odin_last_executed_dhw_hour_ = -1;
+
       // Callback state (detect change before firing)
       float last_hp_feed_temp_      = NAN;
       float last_z1_feed_temp_      = NAN;
@@ -89,7 +91,6 @@ namespace esphome
       int      last_processed_day_          = -1;
       int      last_processed_hour_         {-1};
       int      last_pre_hour_triggered_      {-1};
-      uint32_t odin_fetch_pending_ms_        {0};   // deferred day-transition fetch
       float    daily_runtime_cool_          = 0.0f;
 
       // Strict energy separation buckets
@@ -185,6 +186,7 @@ namespace esphome
       bool  is_dhw_active(const ecodan::Status &status);
       bool  is_post_dhw_window(const ecodan::Status &status);
       bool  is_heating_active(const ecodan::Status &status);
+      bool  is_cooling_active(const ecodan::Status &status);
       float clamp_flow_temp(float flow, float min_temp, float max_temp);
       float enforce_step_down(const ecodan::Status &status, float actual_flow, float calculated_flow);
       bool  set_flow_temp(float flow, OptimizerZone zone);
