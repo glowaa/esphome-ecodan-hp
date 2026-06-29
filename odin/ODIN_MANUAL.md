@@ -24,6 +24,7 @@
 16. [Monitoring Performance — Room Temperature Charts](#16-monitoring-performance--room-temperature-charts)
 17. [How the Optimizer Works](#17-how-the-optimizer-works)
 18. [API Data Feeds — Pushing Prices & Weather](#18-api-data-feeds--pushing-prices--weather)
+19. [Factory Reset](#19-factory-reset)
 
 ---
 
@@ -32,6 +33,7 @@
 - **Asgard hardware** with virtual thermostats wired (required — ODIN cannot function without it)
   * Buffer tank systems will have to use the virtual thermostats z1 and/or z2
 - **ODIN hardware**
+- It is required to run Auto Adaptive, as the solver utilizes it to enforce safety constraints and boundary limits.
 - A browser to complete initial setup
 - Your location coordinates (latitude / longitude) — the setup wizard has an interactive map
 - Basic knowledge of your house: heating system type, solar panel capacity (if any), heat pump rated output
@@ -50,6 +52,7 @@ While ODIN is highly advanced, it is important to set the right expectations reg
 - **Hardware Overrides:** ODIN optimizes the schedule, but it cannot override the heat pump's physical safety limits or hard-coded triggers. For instance, if someone takes a very long shower and the tank temperature hits the physical drop point, the heat pump will start immediately to recover the tank, regardless of ODIN's cost plan.
 - **FTC5 / FTC4 (firmware > 12.01):** FTC5 and FTC4 do not provide 'real-time' energy consumption numbers. Asgard will use the daily reported consumption as a fallback. Please be advised that the energy consumption bar per hour will not display a value. It is recommended to install **an** energy meter and **link it** in Asgard. Then you will be able to see the hourly energy consumption.
 - **High Resolution Temperature Sensor:** It is recommended to use a temperature sensor with a **0.1°C** resolution. ODIN will be able to observe temperature changes faster and react accordingly.
+- **Legionella Prevention:** Odin has no control over Legionella Prevention.
 
 ---
 
@@ -67,6 +70,12 @@ ODIN is provided under a strict home-use agreement. By using the ODIN software a
     * **Accidental damage (e.g. dropping the unit, cracking the 3D printed casing).**
 
 ---
+
+> [!TIP]
+> **Optimal Placement:** To ensure a stable connection, place your Odin unit near a Wi-Fi access point or router. Due to its low power consumption, Odin can be conveniently powered directly from a spare USB port on your router or NAS.
+
+> [!IMPORTANT]
+> **Assign a Static IP Address:** For optimal reliability, please configure a static (fixed) IP address for your Odin unit. You can typically do this in your router's settings by creating a DHCP reservation using Odin's MAC address.
 
 ## 4. First Boot — Wi-Fi Setup
 
@@ -144,6 +153,8 @@ Toggle **I have solar panels** on if you have a PV installation. The fields belo
 | **Total Capacity (kWp)** | The peak output of your installation in kilowatts-peak. |
 | **Orientation (Degrees)** | The compass direction your panels face, in degrees (0 = North, 90 = East, 180 = South, 270 = West). Use the preset dropdown or enter exact degrees. |
 | **Tilt / Pitch (Degrees)** | The angle your panels are mounted at. Flat roof = ~10°, pitched roof = ~35–45°. |
+
+You can define multiple arrays by pressing the `add array` button.
 
 If you have no solar panels, leave the toggle off. ODIN will still optimize around price. Please be advised that solar production is an **estimation** based on the parameters.
 
@@ -354,6 +365,8 @@ These fields appear when the corresponding weather source is selected. Leave **O
 
 ### Latitude / Longitude
 
+<img src="img/geolocation.png" style="width:400px;">
+
 Your geographic coordinates in decimal degrees. Essential for solar irradiance and weather forecasts.
 
 **How to find them:** Search your address on [maps.google.com](https://maps.google.com), right-click your location, and the coordinates appear at the top of the context menu.
@@ -382,6 +395,8 @@ During hours when your panels produce more electricity than the heat pump needs,
 ---
 
 ### Solar Orientation (Degrees)
+
+<img src="img/solar-orientation.png" style="width:500px;">
 
 The compass direction your panels face, expressed in degrees (0 = North, 90 = East, 180 = South, 270 = West). Use the preset dropdown for standard directions or enter exact degrees for split arrays.
 
@@ -541,6 +556,8 @@ The schedule defines your **comfort temperature band** for each hour of the day.
 
 The schedule is divided into **time blocks**. Each block defines settings that apply from its start hour until the next block begins. The last block wraps around to midnight.
 
+<img src="img/24h-schedule.png" style="width:500px;">
+
 Each block has four fields:
 
 | Field | Description |
@@ -597,22 +614,18 @@ Select one of three modes:
 
 When a mode other than Disabled is selected, a time-block schedule appears — identical in structure to the comfort schedule. Each block sets a start hour and a maximum value (in kW) for that period.
 
+
 **Example — Silent Mode (Max Output):**
 
-| Hour | Max Output (kW) |
-|------|----------------|
-| 0 | 4.0 |
-| 7 | 10.0 |
-| 23 | 4.0 |
+<img src="img/output-constraint.png" style="width:500px;">
+
 
 This limits the heat pump to 4 kW thermal output between 23:00 and 07:00 (quiet at night), while allowing full output during the day.
 
 **Example — Grid Limit (Max Consumption):**
 
-| Hour | Max Consumption (kW) |
-|------|---------------------|
-| 0 | 2.5 |
-| 7 | 3.5 |
+<img src="img/input-constraint.png" style="width:500px;">
+
 
 This prevents the heat pump from drawing more than the specified electrical power, for instance to stay within a smart meter capacity tariff limit.
 
@@ -628,7 +641,11 @@ The **Data** tab shows the current inputs ODIN is working with:
 
 Both charts display **48 hours** of data: today's 24 hours followed by tomorrow's 24 hours (labelled `+1d 0:00` through `+1d 23:00`). This gives you a full view of the data ODIN is working with for today and the complete plan it has already built for tomorrow night.
 
+<img src="img/price.png" style="width:500px;">
+
 **Energy Prices** — hourly day-ahead spot prices in EUR/kWh, shown as a bar chart. The date the prices apply to is shown below the chart title. Tomorrow's prices appear in the `+1d` portion of the chart once they have been fetched (typically available from around 13:00 CET). If prices show `0` for all hours, click **Fetch Latest Data** to manually trigger a refresh.
+
+<img src="img/weather.png" style="width:500px;">
 
 **Weather Forecast** — hourly outside temperature (°C) and solar irradiance (W/m²) for your location across both days. The timestamp of the last weather fetch is shown below the title.
 
@@ -700,6 +717,8 @@ This check runs automatically every 60 seconds. If ODIN is on the same Wi-Fi net
 
 #### Manual IP entry (Recommended, much faster than mDNS)
 
+<img src="img/odin-ip.png" style="width:500px;">
+
 If mDNS does not work on your network (some routers block it), enter ODIN's IP address manually:
 
 1. Find ODIN's IP address in your router's connected devices list
@@ -708,6 +727,8 @@ If mDNS does not work on your network (some routers block it), enter ODIN's IP a
 4. Click **Save IP**
 
 Once a valid IP is stored, the **Open ODIN** button appears — click it to open the ODIN dashboard directly in a new tab.
+
+<img src="img/asgard-odin-settings.png" style="width:500px;">
 
 #### Enable Dynamic Cost Solver
 
@@ -927,6 +948,8 @@ Each hourly plan balances three things simultaneously:
 
 ODIN is fully aware of your Domestic Hot Water (DHW) needs. Rather than letting the heat pump blindly reheat the tank whenever it drops, ODIN's optimization engine tries to schedule this heavy energy load during the cheapest or sunniest hours.
 
+<img src="img/dhw-schedule.png" style="width:500px;">
+
 How this behaves depends on three variables: your **Target** (Setpoint), your hardware **Drop**, and ODIN's **Threshold**.
 
 #### Example Numbers
@@ -1031,7 +1054,7 @@ Pushes 24–48 hours of hourly electricity prices to ODIN.
 ```yaml
 rest_command:
   push_odin_prices:
-    url: "[http://192.168.1.42/api/data/prices](http://192.168.1.42/api/data/prices)"
+    url: "http://192.168.1.42/api/data/prices"
     method: POST
     content_type: "application/json"
     payload: >
@@ -1093,7 +1116,7 @@ Pushes 24–48 hours of hourly outdoor temperature and solar irradiance to ODIN.
 ```yaml
 rest_command:
   push_odin_weather:
-    url: "[http://192.168.1.42/api/data/weather](http://192.168.1.42/api/data/weather)"
+    url: "http://192.168.1.42/api/data/weather"
     method: POST
     content_type: "application/json"
     payload: >
@@ -1122,3 +1145,11 @@ Both endpoints are stateless — push whenever your data updates. Recommended pr
 - **Weather:** push once per hour (or every 30 minutes) so ODIN always has the freshest forecast before its hourly solve. Each push overwrites the previous data.
 
 > **Tip:** In Home Assistant, a Time-based automation that calls `rest_command.push_odin_prices` at 14:15 and `rest_command.push_odin_weather` every hour on the :55 mark (five minutes before ODIN's hourly solve) is a reliable and low-overhead integration pattern.
+
+## 19. Factory Reset
+
+If you need to restore ODIN to its original settings, follow these steps:
+
+1. Press and hold the boot button.
+2. Keep the button pressed until the status LED turns solid blue, then release.
+3. The LED will flash red and blue while the device erases all data.

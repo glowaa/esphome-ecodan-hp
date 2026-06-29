@@ -18,7 +18,7 @@ namespace esphome
             uint32_t now = millis();
             bool is_running = (status.CompressorFrequency > 0) || status.CompressorOn;
             bool is_heating_active = status.Operation == esphome::ecodan::Status::OperationMode::HEAT_ON;
-            bool is_cooling_active = status.Operation == esphome::ecodan::Status::OperationMode::COOL_ON; // ADD THIS
+            bool is_cooling_active = status.Operation == esphome::ecodan::Status::OperationMode::COOL_ON;
 
             if (this->last_check_ms_ != 0) {    
                 float minutes_passed = (now - this->last_check_ms_) / 60000.0f;
@@ -220,6 +220,8 @@ namespace esphome
             if (current_day != this->last_processed_day_) {
                 ESP_LOGI(OPTIMIZER_TAG, "Raw Data Collection: Day transition detected (%d -> %d). Saving stats...", 
                          this->last_processed_day_, current_day);
+
+                this->sync_odin_data_day();
 
                 // FTC4/FTC5 Fallback Logic (Consumption Only)
                 if (this->last_total_heating_consumed_ <= 0.01f && this->daily_runtime_global > 0.0f) {
@@ -447,13 +449,15 @@ namespace esphome
             // ALWAYS UPDATE: Passive Data & Building Physics ---
             update_ema_num(this->state_.num_raw_avg_room_temp, avg_room, ALPHA);
             update_ema_num(this->state_.num_raw_delta_room_temp, delta_room, ALPHA);
+            // Always track to avoid COP/EER normalisation issues when there is no heating/cooling
+            update_ema_num(this->state_.num_raw_avg_outside_temp,      avg_outside, ALPHA);
+            update_ema_num(this->state_.num_raw_cool_avg_outside_temp, avg_outside, ALPHA);
 
             // ONLY UPDATE WHEN HEATING OR COOLING: System Performance ---
             if (heat_produced_kwh >= 2.0f && runtime_hours >= 1.0f) {
                 update_ema_num(this->state_.num_raw_heat_produced, heat_produced_kwh, ALPHA);
                 update_ema_num(this->state_.num_raw_elec_consumed, elec_consumed_kwh, ALPHA);
                 update_ema_num(this->state_.num_raw_runtime_hours, runtime_hours, ALPHA);
-                update_ema_num(this->state_.num_raw_avg_outside_temp, avg_outside, ALPHA);
 
                 ESP_LOGI(OPTIMIZER_TAG, "Full Heating update (15%% EMA): Heat=%.1fkWh, Elec=%.1fkWh, Run=%.1fh, AvgOut=%.1fC, AvgRoom=%.1fC",
                          safe_get(this->state_.num_raw_heat_produced, heat_produced_kwh), 
@@ -466,7 +470,6 @@ namespace esphome
                 update_ema_num(this->state_.num_raw_cool_produced, cool_produced_kwh, ALPHA);
                 update_ema_num(this->state_.num_raw_cool_elec_consumed, cool_elec_consumed_kwh, ALPHA);
                 update_ema_num(this->state_.num_raw_cool_runtime_hours, cool_runtime_hours, ALPHA);
-                update_ema_num(this->state_.num_raw_cool_avg_outside_temp, avg_outside, ALPHA);
 
                 ESP_LOGI(OPTIMIZER_TAG, "Full Cooling update (15%% EMA): CoolProd=%.1fkWh, CoolElec=%.1fkWh, Run=%.1fh, AvgOut=%.1fC",
                          safe_get(this->state_.num_raw_cool_produced, cool_produced_kwh), 

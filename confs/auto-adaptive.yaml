@@ -152,7 +152,7 @@ number:
     restore_value: true
     initial_value: 19.0
     min_value: 16.0
-    max_value: 22.0
+    max_value: 25.0
     step: 0.5
 
   - platform: template
@@ -296,6 +296,8 @@ select:
       - "30"
       - "45"
       - "60"
+      - "120"
+      - "240"
     initial_option: "0"
 
   - platform: template
