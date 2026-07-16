@@ -59,6 +59,11 @@ namespace esphome
           }
       };
 
+      bool is_cooling_mode(const ecodan::Status& status, OptimizerZone zone) {
+        auto ecodan_zone = zone == OptimizerZone::ZONE_1 ? ecodan::Zone::ZONE_1 : ecodan::Zone::ZONE_2;
+        return status.has_cooling() && status.is_auto_adaptive_cooling(ecodan_zone);
+      }
+
       uint32_t compressor_start_time_ = 0;
       uint32_t last_defrost_time_     = 0;
       DefrostState state_before_defrost_;
@@ -92,6 +97,8 @@ namespace esphome
       int      last_processed_hour_         {-1};
       int      last_pre_hour_triggered_      {-1};
       float    daily_runtime_cool_          = 0.0f;
+      float    daily_cool_outside_temp_sum_   = 0.0f;
+      int      daily_cool_outside_temp_count_ = 0;
 
       // Strict energy separation buckets
       float    last_global_prod_            = -1.0f;
@@ -188,7 +195,7 @@ namespace esphome
       bool  is_heating_active(const ecodan::Status &status);
       bool  is_cooling_active(const ecodan::Status &status);
       float clamp_flow_temp(float flow, float min_temp, float max_temp);
-      float enforce_step_limit(const ecodan::Status &status, float actual_flow, float calculated_flow);
+      float enforce_step_limit(const ecodan::Status &status, float actual_flow, float calculated_flow, bool is_cooling_mode);
       bool  set_flow_temp(float flow, OptimizerZone zone);
       float round_nearest(float input)      { return round(input * 10.0f) / 10.0f; }
       float round_nearest_half(float input) { return floor(input * 2.0) / 2.0f; }
