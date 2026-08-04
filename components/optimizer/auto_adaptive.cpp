@@ -230,8 +230,7 @@ namespace esphome
                     calculated_flow = actual_return_temp + target_delta;
                 }
 
-                // Predictive boost adjustment (fetch feed temp once; reused by buffer guard below)
-                auto &pcp_adj = (zone_i == 1) ? this->pcp_adjustment_z2_ : this->pcp_adjustment_z1_;
+                // Fetch feed temp once (reused by the buffer guard below).
                 float actual_flow_temp = this->get_feed_temp(
                     (zone_i == 0) ? OptimizerZone::ZONE_1 : OptimizerZone::ZONE_2);
 
@@ -252,14 +251,7 @@ namespace esphome
 
                 calculated_flow = this->round_nearest(calculated_flow);
 
-                if (pcp_adj > 0.0f) {
-                    if ((actual_flow_temp - calculated_flow) >= 1.0f) {
-                        calculated_flow += pcp_adj;
-                    } else {
-                        pcp_adj = 0.0f;
-                    }
-                }
-                ESP_LOGD(OPTIMIZER_TAG, "Z%d HEATING: flow=%.2f°C, return=%.2f°C (boost %.1f)", (zone_i + 1), calculated_flow, actual_return_temp, pcp_adj);
+                ESP_LOGD(OPTIMIZER_TAG, "Z%d HEATING: flow=%.2f°C, return=%.2f°C", (zone_i + 1), calculated_flow, actual_return_temp);
             }
 
             bool cooling_mode = is_cooling_mode(status, (zone_i == 0) ? OptimizerZone::ZONE_1 : OptimizerZone::ZONE_2);
@@ -624,8 +616,9 @@ namespace esphome
             float cold_factor = cf_raw * cf_raw * 1.5f;
 
             ESP_LOGD(OPTIMIZER_TAG,
-                "[*] Auto-adaptive cycle: independent_zone_temps=%d has_cooling=%d cold_factor=%.2f min_delta=%.2f max_delta=%.2f",
-                status.has_independent_zone_temps(), status.has_cooling(), cold_factor, prof.base_min_delta_t, prof.max_delta_t);
+                "[*] Auto-adaptive cycle: independent_zone_temps=%d has_cooling=%d cold_factor=%.2f min_delta=%.2f max_delta=%.2f multizone_status=%d operation=%d",
+                status.has_independent_zone_temps(), status.has_cooling(), cold_factor, prof.base_min_delta_t, prof.max_delta_t,
+                status.MultiZoneStatus, static_cast<uint8_t>(status.Operation));
 
             auto max_zones = status.has_2zones() ? 2 : 1;
 

@@ -1,6 +1,7 @@
 #include "optimizer.h"
 #include "esphome/components/ecodan/ecodan.h"
 #include "esphome/core/log.h"
+#include <inttypes.h>
 #include <cmath>
 
 using std::isnan;
@@ -9,11 +10,60 @@ namespace esphome
 {
     namespace optimizer
     {
+        void Optimizer::restore_energy_buckets_()
+        {
+            EnergyBucketState saved;
+            if (!this->energy_buckets_pref_.load(&saved)) {
+                this->restore_attempted_ = false;  // no data yet, keep retrying
+                return;
+            }
+
+            auto &status = this->state_.ecodan_instance->get_status();
+            int current_day = status.day_of_year();
+            if (current_day < 0) {
+                this->restore_attempted_ = false;  // Ecodan status not ready, retry later
+                return;
+            }
+            if (current_day != saved.day) return;
+
+            this->restore_attempted_ = true;
+            ESP_LOGI(OPTIMIZER_TAG, "Restoring energy buckets from reboot (day %" PRIu32 ").", saved.day);
+            this->last_total_heating_produced_ = saved.last_total_heating_produced;
+            this->last_total_heating_consumed_ = saved.last_total_heating_consumed;
+            this->last_total_cooling_produced_ = saved.last_total_cooling_produced;
+            this->last_total_cooling_consumed_ = saved.last_total_cooling_consumed;
+            this->last_total_dhw_produced_ = saved.last_total_dhw_produced;
+            this->last_total_dhw_consumed_ = saved.last_total_dhw_consumed;
+            this->last_total_all_consumed_ = saved.last_total_all_consumed;
+        }
+
+        void Optimizer::save_energy_buckets_(int day)
+        {
+            EnergyBucketState buckets;
+            buckets.day = static_cast<uint32_t>(day);
+            buckets.last_total_heating_produced = this->last_total_heating_produced_;
+            buckets.last_total_heating_consumed = this->last_total_heating_consumed_;
+            buckets.last_total_cooling_produced = this->last_total_cooling_produced_;
+            buckets.last_total_cooling_consumed = this->last_total_cooling_consumed_;
+            buckets.last_total_dhw_produced = this->last_total_dhw_produced_;
+            buckets.last_total_dhw_consumed = this->last_total_dhw_consumed_;
+            buckets.last_total_all_consumed = this->last_total_all_consumed_;
+            this->energy_buckets_pref_.save(&buckets);
+        }
+
         // Raw Data Collection Model
         void Optimizer::update_heat_model()
         {
             if (this->state_.ecodan_instance == nullptr) return;
             auto &status = this->state_.ecodan_instance->get_status();
+
+            // Deferred restore: if constructor ran before Ecodan status was ready,
+            // retry now that we have a valid day.
+            if (!this->restore_attempted_) {
+                if (status.day_of_year() >= 0) {
+                    this->restore_energy_buckets_();
+                }
+            }
             
             uint32_t now = millis();
             bool is_running = (status.CompressorFrequency > 0) || status.CompressorOn;
@@ -73,25 +123,31 @@ namespace esphome
                         this->fc_hours_ += minutes_passed / 60.0f;
 
                     } else if (!hp_off && this->fc_active_) {
-                        // HP just came back on — seal the measurement window
-                        float delta_cool  = this->fc_room_start_ - current_room_tmp;
+                        // HP just came back on — seal the measurement window.
+                        //
+                        // Symmetric for both seasons. A warm house relaxing toward a cold
+                        // outside (heating) and a cool house relaxing toward a hot outside
+                        // (cooling) are the same RC-decay physics, just mirrored
                         float t_hours     = this->fc_hours_;
                         float t_outside   = this->fc_outside_sum_ / this->fc_outside_count_;
-                        float avg_sol     = this->fc_solar_sum_ / this->fc_outside_count_; 
+                        float avg_sol     = this->fc_solar_sum_ / this->fc_outside_count_;
                         float t_room_avg  = (this->fc_room_start_ + current_room_tmp) / 2.0f;
-                        float delta_T_avg = t_room_avg - t_outside;
+                        float delta_T_avg = std::fabs(t_room_avg - t_outside);
+                        float drift = (t_outside > t_room_avg)
+                                      ? (current_room_tmp - this->fc_room_start_)   // outside warmer: room should rise
+                                      : (this->fc_room_start_ - current_room_tmp);  // outside colder: room should fall
                         this->fc_active_ = false;
 
                         // Base quality gates (need enough time and a decent inside/outside delta)
                         if (t_hours >= 2.0f && delta_T_avg > 2.0f) {
-                            
+
                             if (avg_sol < 150.0f) {
                                 // NO SIGNIFICANT SOLAR: Learn pure thermal time constant (Tau).
-                                // Happens at night or during heavily overcast days.
-                                // Strictly require the room to have cooled down to calculate physics.
-                                if (t_hours >= 3.0f && delta_cool > 0.15f && delta_cool < 5.0f) {
-                                    float tau = (delta_T_avg * t_hours) / delta_cool;
-                                    
+                                // Happens at night or during heavily overcast days, in either season.
+                                // Strictly require the room to have relaxed toward outside to calculate physics.
+                                if (t_hours >= 3.0f && drift > 0.15f && drift < 5.0f) {
+                                    float tau = (delta_T_avg * t_hours) / drift;
+
                                     if (tau > 5.0f && tau < 300.0f) {
                                         if (this->state_.num_raw_hl_tm_product != nullptr) {
                                             float cur = this->state_.num_raw_hl_tm_product->state;
@@ -105,7 +161,7 @@ namespace esphome
                                             "Free heating/cooling (No Solar): %.2f->%.2fC (%.2fK) in %.1fh, "
                                             "outside=%.1fC -> Tau=%.1fh",
                                             this->fc_room_start_, current_room_tmp,
-                                            delta_cool, t_hours, t_outside, tau);
+                                            drift, t_hours, t_outside, tau);
                                     } else {
                                         ESP_LOGW(OPTIMIZER_TAG, "Free heating/cooling Tau=%.1fh out of range, discarded", tau);
                                     }
@@ -120,7 +176,7 @@ namespace esphome
 
                                     if (tau > 5.0f) {  // only when Tau is reliably learned
                                         float expected_drop = (delta_T_avg * t_hours) / tau;
-                                        float free_heating_kelvin = expected_drop - delta_cool;
+                                        float free_heating_kelvin = expected_drop - drift;
 
                                         // avg_sol is raw W/m² irradiance
                                         if (free_heating_kelvin > 0.0f && avg_sol > 50.0f) {
@@ -155,7 +211,7 @@ namespace esphome
 
                                             ESP_LOGI(OPTIMIZER_TAG,
                                                 "Passive solar factor: %.4f kWh/W/m² (avg_sol=%.0fW/m², expected_drop=%.2fK, actual_drop=%.2fK, hl=%.3f)",
-                                                next, avg_sol, expected_drop, delta_cool, derived_heat_loss);
+                                                next, avg_sol, expected_drop, drift, derived_heat_loss);
                                         } else {
                                             ESP_LOGD(OPTIMIZER_TAG,
                                                 "Passive solar: no measurable gain (free_K=%.2f, sol=%.0fW/m²)",
@@ -222,7 +278,6 @@ namespace esphome
             // Initialize on boot to prevent jump
             if (this->last_processed_day_ == -1) {
                 this->last_processed_day_ = current_day;
-                this->last_processed_hour_ = current_hour;
                 return;
             }
 
@@ -277,7 +332,7 @@ namespace esphome
 
                 this->last_total_dhw_produced_ = 0.0f;
                 this->last_total_dhw_consumed_ = 0.0f;
-                
+
                 // Reset global trackers to prevent false deltas across midnight
                 this->last_global_prod_ = -1.0f;
                 this->last_global_cons_ = -1.0f;
@@ -286,7 +341,14 @@ namespace esphome
                 this->last_was_dhw_     = false;
                 this->last_was_heating_ = false;
                 this->last_run_time_    = UINT32_MAX - 700000UL;
+
+                // Persist the freshly-reset (zeroed) buckets under the NEW day.
+                this->save_energy_buckets_(this->last_processed_day_);
             }
+
+            // Checkpoint on every tick (this function runs every 30s
+            //preferences: flash_write_interval: 5min
+            this->save_energy_buckets_(current_day);
 
             // HOURLY MPC TRIGGER
             if (this->solver_enabled()) {
@@ -458,9 +520,6 @@ namespace esphome
                 return comp != nullptr ? comp->state : fallback;
             };
 
-            // ALWAYS UPDATE: Passive Data & Building Physics ---
-            update_ema_num(this->state_.num_raw_avg_room_temp, avg_room, ALPHA);
-            
 
             // Outside temp averaged ONLY over hours cooling was actually active
             // — NOT the whole-day average, which includes the cool night and can
@@ -474,6 +533,10 @@ namespace esphome
             // ONLY UPDATE WHEN HEATING OR COOLING: System Performance ---
             if (heat_produced_kwh >= 2.0f && runtime_hours >= 1.0f) {
                 update_ema_num(this->state_.num_raw_avg_outside_temp, avg_outside, ALPHA);
+                // Room temp in lockstep with the outside temp above — the two form
+                // the delta_t_out pair for the day-method HL and must reflect the
+                // same (heating-day) population. See note above.
+                update_ema_num(this->state_.num_raw_avg_room_temp, avg_room, ALPHA);
                 update_ema_num(this->state_.num_raw_delta_room_temp, delta_room, ALPHA);
                 update_ema_num(this->state_.num_raw_heat_produced, heat_produced_kwh, ALPHA);
                 update_ema_num(this->state_.num_raw_elec_consumed, elec_consumed_kwh, ALPHA);
@@ -489,6 +552,12 @@ namespace esphome
 
             } else if (cool_produced_kwh >= 2.0f && cool_runtime_hours >= 1.0f) {
                 update_ema_num(this->state_.num_raw_delta_room_temp, delta_room, ALPHA);
+                // Cooling-day room average — the cooling counterpart of
+                // num_raw_avg_room_temp, mirroring the existing outside-temp split
+                // (num_raw_avg_outside_temp vs num_raw_cool_avg_outside_temp).
+                // Pairs with cool_avg_outside for delta_t_out_cool in odin_server.
+                // Kept separate so the heating HL pair stays frozen on winter data.
+                update_ema_num(this->state_.num_raw_cool_avg_room_temp, avg_room, ALPHA);
                 update_ema_num(this->state_.num_raw_cool_produced, cool_produced_kwh, ALPHA);
                 update_ema_num(this->state_.num_raw_cool_elec_consumed, cool_elec_consumed_kwh, ALPHA);
                 update_ema_num(this->state_.num_raw_cool_runtime_hours, cool_runtime_hours, ALPHA);
